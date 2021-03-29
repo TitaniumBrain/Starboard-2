@@ -205,14 +205,18 @@ async def handle_access_denied(e):
 
 @app.before_first_request
 async def before_first_request():
-    await app.config["DATABASE"].init_database()
+    try:
+        await app.config["DATABASE"].init_database()
+    except Exception as e:
+        print("Unable to connect to database")
+        print(e)
     try:
         app.config["WEBSOCKET"] = WebsocketConnection(
             "Dashboard", handle_command
         )
         await app.config["WEBSOCKET"].ensure_connection()
     except Exception as e:
-        print(f"Unable to launch ipc, running with out it.")
+        print("Unable to launch ipc, running with out it.")
         print(e)
 
 
