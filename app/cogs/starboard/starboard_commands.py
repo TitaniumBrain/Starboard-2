@@ -1,9 +1,11 @@
-from typing import Union
+from typing import Optional, Union
 
 import discord
 from discord.ext import commands
 
-from ... import converters, errors, utils, menus
+from app.i18n import t_
+
+from ... import converters, errors, menus, utils
 from ...classes.bot import Bot
 
 
@@ -32,19 +34,21 @@ class Starboard(commands.Cog):
             starboards = await self.bot.db.starboards.get_many(ctx.guild.id)
             if len(starboards) == 0:
                 await ctx.send(
-                    "You do not have any starboards. "
-                    f"Add starboards with `{p}s add "
-                    "#channel`."
+                    t_(
+                        "You do not have any starboards. "
+                        "Add starboards with `{0}s add "
+                        "#channel`."
+                    ).format(p)
                 )
                 return
 
             embed = discord.Embed(
-                title=f"Starboards for **{ctx.guild}**",
-                description=(
+                title=t_("Starboards for **{0}**:").format(ctx.guild),
+                description=t_(
                     "This lists the starboards and their "
                     "most important settings. To view all "
-                    f"settings, run `{p}starboards #starboard`."
-                ),
+                    "settings, run `{0}starboards #starboard`."
+                ).format(p),
                 color=self.bot.theme_color,
             )
             for s in starboards:
@@ -53,7 +57,9 @@ class Starboard(commands.Cog):
                     s["star_emojis"], ctx.guild
                 )
                 embed.add_field(
-                    name=c.name if c else f"Deleted Channel {s['id']}",
+                    name=c.name
+                    if c
+                    else t_("Deleted Channel {0}").format(s["id"]),
                     value=(
                         f"emojis: **{emoji_str}**\n"
                         f"requiredStars: **{s['required']}**\n"
@@ -98,10 +104,12 @@ class Starboard(commands.Cog):
         existed = await self.bot.db.starboards.create(channel.id, ctx.guild.id)
         if existed:
             raise errors.AlreadyExists(
-                f"{channel.mention} is already a starboard."
+                t_("{0} is already a starboard.").format(channel.mention)
             )
         else:
-            await ctx.send(f"Created starboard {channel.mention}")
+            await ctx.send(
+                t_("Created starboard {0}.").format(channel.mention)
+            )
 
     @starboards.command(
         name="remove",
@@ -123,16 +131,20 @@ class Starboard(commands.Cog):
         cname = channel.mention if type(channel) is not int else channel
         starboard = await self.bot.db.starboards.get(cid)
         if not starboard:
-            raise errors.DoesNotExist(f"{cname} is not a starboard.")
+            raise errors.DoesNotExist(
+                t_("{0} is not a starboard.").format(cname)
+            )
         else:
             confirmed = await menus.Confirm(
-                "Are you sure? All starboard messages will be lost."
+                t_("Are you sure? All starboard messages will be lost.")
             ).start(ctx)
             if confirmed is True:
                 await self.bot.db.starboards.delete(cid)
-                await ctx.send(f"{cname} is no longer a starboard.")
+                await ctx.send(
+                    t_("{0} is no longer a starboard.").format(cname)
+                )
             if confirmed is False:
-                await ctx.send("Cancelled.")
+                await ctx.send(t_("Cancelled."))
 
     @starboards.command(
         name="displayEmoji",
@@ -171,8 +183,15 @@ class Starboard(commands.Cog):
         self,
         ctx: commands.Context,
         starboard: converters.Starboard,
-        color: converters.myhex,
+        *,
+        color: Optional[commands.ColorConverter],
     ) -> None:
+        color = (
+            str(color)
+            if color
+            else hex(self.bot.theme_color).replace("0x", "#")
+        )
+
         await self.bot.db.starboards.edit(starboard.obj.id, color=color)
         await ctx.send(
             embed=utils.cs_embed(
@@ -494,18 +513,58 @@ class Starboard(commands.Cog):
         brief="Modify starEmojis for a starboard",
         invoke_without_command=True,
     )
-    @commands.has_guild_permissions(manage_guild=True)
+    @commands.has_guild_permissions(manage_channels=True)
     async def star_emojis(self, ctx: commands.Context) -> None:
         """Modify the star emojis for a starboard"""
+        p = utils.clean_prefix(ctx)
         await ctx.send(
-            "Options:\n "
-            "- `starEmojis add <starboard> <emoji>`\n"
-            " - `starEmojis remove <starboard> <emoji>`\n"
-            " - `starEmojis clear <starboard>`"
+            t_(
+                "Options:\n```"
+                " - {0}starEmojis add <starboard> <emoji>\n"
+                " - {0}starEmojis remove <starboard> <emoji>\n"
+                " - {0}starEmojis clear <starboard>\n"
+                " - {0}starEmojis set <starboard> [emoji1, emoji2, ...]```"
+            ).format(p)
+        )
+
+    @star_emojis.command(
+        name="set", brief="Sets the starEmojis for a starboard"
+    )
+    @commands.has_guild_permissions(manage_channels=True)
+    @commands.bot_has_permissions(embed_links=True)
+    @commands.guild_only()
+    async def set_star_emojis(
+        self,
+        ctx: commands.Context,
+        starboard: converters.Starboard,
+        *emojis: converters.Emoji,
+    ) -> None:
+        """Accepts a list of emojis to replace the old starEmojis
+        on a starboard."""
+        converted_emojis = [utils.clean_emoji(e) for e in emojis]
+        original_emojis = starboard.sql["star_emojis"]
+
+        await self.bot.db.starboards.edit(
+            starboard.obj.id, star_emojis=converted_emojis
+        )
+
+        pretty_orig_emojis = utils.pretty_emoji_string(
+            original_emojis, ctx.guild
+        )
+        pretty_new_emojis = utils.pretty_emoji_string(
+            converted_emojis, ctx.guild
+        )
+
+        await ctx.send(
+            embed=utils.cs_embed(
+                {"starEmojis": (pretty_orig_emojis, pretty_new_emojis)},
+                self.bot,
+                noticks=True,
+            )
         )
 
     @star_emojis.command(name="add", aliases=["a"], brief="Add a starEmoji")
-    @commands.has_guild_permissions(manage_guild=True)
+    @commands.has_guild_permissions(manage_channels=True)
     @commands.bot_has_permissions(embed_links=True)
     @commands.guild_only()
     async def add_star_emoji(
@@ -521,8 +580,9 @@ class Starboard(commands.Cog):
 
         if converted_emoji in current_emojis:
             raise errors.AlreadyExists(
-                f"{emoji} is already a starEmoji on "
-                f"{starboard.obj.mention}"
+                t_("{0} is already a starEmoji on {1}.").format(
+                    emoji, starboard.obj.mention
+                )
             )
 
         new_emojis = current_emojis + [converted_emoji]
@@ -563,7 +623,9 @@ class Starboard(commands.Cog):
 
         if converted_emoji not in current_emojis:
             raise errors.DoesNotExist(
-                f"{emoji} is not a starEmoji on " f"{starboard.obj.mention}"
+                t_("{0} is not a starEmoji on {1}.").format(
+                    emoji, starboard.obj.mention
+                )
             )
 
         new_emojis = current_emojis.copy()
@@ -601,8 +663,9 @@ class Starboard(commands.Cog):
     ) -> None:
         """Removes all starEmojis from a starboard"""
         if not await menus.Confirm(
-            "Are you sure you want to clear all emojis "
-            f"for {starboard.obj.mention}?"
+            t_("Are you sure you want to clear all emojis for {0}?").format(
+                starboard.obj.mention
+            )
         ).start(ctx):
             await ctx.send("Cancelled")
             return

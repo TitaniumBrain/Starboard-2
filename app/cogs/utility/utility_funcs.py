@@ -1,9 +1,10 @@
-from typing import List, Optional, Tuple
+from typing import Optional
 
 import discord
 
 from app.classes.bot import Bot
 from app.cogs.starboard import starboard_funcs
+from app.i18n import t_
 
 
 async def handle_purging(
@@ -14,7 +15,7 @@ async def handle_purging(
     by: Optional[discord.Member],
     notby: Optional[discord.Member],
     contains: Optional[str],
-) -> Tuple[int, dict]:
+) -> tuple[int, dict]:
     purged = {}
     total = 0
 
@@ -47,7 +48,7 @@ async def handle_purging(
             sql_message["id"],
             sql_message["guild_id"],
             trash,
-            reason="Message Purging" if trash else None,
+            reason=t_("Purged") if trash else None,
         )
         purged.setdefault(sql_message["author_id"], 0)
         purged[sql_message["author_id"]] += 1
@@ -73,13 +74,13 @@ async def handle_forcing(
     bot: Bot,
     message_id: int,
     guild_id: int,
-    _starboards: List[int],
+    _starboards: list[int],
     force: bool,
 ) -> None:
     sql_message = await bot.db.messages.get(message_id)
     if not sql_message:
         return
-    new_forced: List = sql_message["forced"]
+    new_forced: list = sql_message["forced"]
     if len(_starboards) != 0:
         starboards = _starboards
     else:

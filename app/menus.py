@@ -1,7 +1,7 @@
-from typing import Optional, List
+from typing import Optional
 
 import discord
-from discord.ext import menus, commands
+from discord.ext import commands, menus
 
 
 class Confirm(menus.Menu):
@@ -33,8 +33,8 @@ class Confirm(menus.Menu):
 class Paginator(menus.Menu):
     def __init__(
         self,
-        embeds: Optional[List[discord.Embed]] = None,
-        text: Optional[List[str]] = None,
+        embeds: Optional[list[discord.Embed]] = None,
+        text: Optional[list[str]] = None,
         delete_after: bool = False,
     ) -> None:
         super().__init__(

@@ -1,5 +1,4 @@
 import random
-from typing import List
 
 import discord
 from discord.ext import commands, flags
@@ -7,6 +6,7 @@ from discord.ext import commands, flags
 from app import converters, menus
 from app.classes.bot import Bot
 from app.cogs.starboard import starboard_funcs
+from app.i18n import t_
 
 from . import fun_funcs
 
@@ -50,7 +50,7 @@ class Fun(commands.Cog):
 
         embeds = [
             discord.Embed(
-                title=f"Leaderboard for {ctx.guild.name}",
+                title=t_("Leaderboard for {0}:").format(ctx.guild.name),
                 description=page,
                 color=self.bot.theme_color,
             )
@@ -72,7 +72,7 @@ class Fun(commands.Cog):
         user: discord.Member = user or ctx.message.author
         sql_user = await self.bot.db.users.get(user.id)
         if not sql_user:
-            await ctx.send(f"**{user}** has no stats to show.")
+            await ctx.send(t_("**{0}** has no stats to show.").format(user))
             return
         sql_member = await self.bot.db.members.get(user.id, ctx.guild.id)
 
@@ -88,13 +88,13 @@ class Fun(commands.Cog):
 
         embed = discord.Embed(
             title=f"{user}",
-            description=(
-                f"Rank: **#{rank}**\n"
-                f"Stars Given: **{stars_given}**\n"
-                f"Stars Received: **{stars_recv}**\n"
-                f"XP: **{xp}**\n"
-                f"Level: **{level}**"
-            ),
+            description=t_(
+                "Rank: **#{0}**\n"
+                "Stars Given: **{1}**\n"
+                "Stars Received: **{2}**\n"
+                "XP: **{3}**\n"
+                "Level: **{4}**"
+            ).format(rank, stars_given, stars_recv, xp, level),
             color=self.bot.theme_color,
         ).set_thumbnail(url=user.avatar_url)
         await ctx.send(embed=embed)
@@ -159,11 +159,8 @@ class Fun(commands.Cog):
             ctx.guild.id,
             maxpoints,
         )
-        if len(messages) == 0:
-            await ctx.send("Nothing to show.")
-            return
-        embeds: List[discord.Embed] = []
-        text_pages: List[str] = []
+        embeds: list[discord.Embed] = []
+        text_pages: list[str] = []
         for m in messages[place : place + 10]:
             orig = await self.bot.db.messages.get(m["orig_id"])
             obj = await self.bot.cache.fetch_message(
@@ -173,19 +170,25 @@ class Fun(commands.Cog):
             )
             sql_starboard = await self.bot.db.starboards.get(m["starboard_id"])
             color = sql_starboard["color"]
-            text_pages.append(
-                starboard_funcs.get_plain_text(
-                    sql_starboard, orig, m["points"], ctx.guild
-                )
-            )
             if not obj:
                 continue
             e, _ = await starboard_funcs.embed_message(
                 self.bot, obj, color=color
             )
+            text_pages.append(
+                starboard_funcs.get_plain_text(
+                    sql_starboard, orig, m["points"], ctx.guild
+                )
+            )
             embeds.append(e)
 
-        await menus.Paginator(embeds=embeds, text=text_pages).start(ctx)
+        if len(embeds) == 0:
+            await ctx.send(t_("Nothing to show."))
+            return
+
+        await menus.Paginator(
+            embeds=embeds, text=text_pages, delete_after=True
+        ).start(ctx)
 
     @flags.add_flag("--by", type=discord.User, default=None)
     @flags.add_flag("--in", type=discord.TextChannel, default=None)
@@ -250,7 +253,7 @@ class Fun(commands.Cog):
         )
         if len(good_messages) == 0:
             await ctx.send(
-                "No messages were found that matched those requirements."
+                t_("No messages were found that matched those requirements.")
             )
             return
         choice = random.choice(good_messages)
@@ -264,7 +267,7 @@ class Fun(commands.Cog):
             orig_sql_message["id"],
         )
         if not orig_message:
-            await ctx.send("Something went wrong. Please try again.")
+            await ctx.send(t_("Something went wrong. Please try again."))
             return
 
         points = choice["points"]
@@ -305,7 +308,7 @@ class Fun(commands.Cog):
         m = message
         if orig_sql_message:
             if orig_sql_message["trashed"]:
-                await ctx.send("You cannot save a trashed message")
+                await ctx.send(t_("You cannot save a trashed message."))
                 return
             orig_message = await self.bot.cache.fetch_message(
                 int(orig_sql_message["guild_id"]),
@@ -314,7 +317,7 @@ class Fun(commands.Cog):
             )
             if not orig_message:
                 await ctx.send(
-                    "That message was deleted, so you can't save it."
+                    t_("That message was deleted, so you can't save it.")
                 )
                 return
             m = orig_message
@@ -322,7 +325,9 @@ class Fun(commands.Cog):
         try:
             await ctx.author.send(embed=embed, files=attachments)
         except discord.Forbidden:
-            await ctx.send("I can't DM you, so you can't save that message.")
+            await ctx.send(
+                t_("I can't DM you, so you can't save that message.")
+            )
 
 
 def setup(bot: Bot) -> None:

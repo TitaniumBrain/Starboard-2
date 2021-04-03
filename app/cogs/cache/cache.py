@@ -1,10 +1,10 @@
-from typing import Dict, List, Optional
+from typing import Optional
 
 import discord
 
 from app import utils
-
-from . import queue
+from app.classes import queue
+from app.classes.bot import Bot
 
 
 class Cache:
@@ -13,11 +13,11 @@ class Cache:
         self.bot = bot
 
     async def get_members(
-        self, uids: List[int], guild: discord.Guild
-    ) -> Dict[int, Optional[discord.Member]]:
+        self, uids: list[int], guild: discord.Guild
+    ) -> dict[int, Optional[discord.Member]]:
         await self.bot.wait_until_ready()
-        not_found: List[int] = []
-        result: Dict[int, Optional[discord.Member]] = {}
+        not_found: list[int] = []
+        result: dict[int, Optional[discord.Member]] = {}
 
         for uid in uids:
             cached = guild.get_member(uid)
@@ -60,3 +60,7 @@ class Cache:
             self.messages.add(guild.id, message)
             return message
         return cached
+
+
+def setup(bot: Bot) -> None:
+    bot.cache = Cache(bot)

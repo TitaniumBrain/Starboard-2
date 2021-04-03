@@ -1,10 +1,11 @@
 import asyncio
-from typing import List, Optional, Tuple
+from typing import Optional
 
 import discord
 
 from app import utils
 from app.classes.bot import Bot
+from app.i18n import t_
 
 ZERO_WIDTH_SPACE = "\u200B"
 
@@ -24,15 +25,16 @@ def get_plain_text(
     )
 
 
-async def sbemojis(bot: Bot, guild_id: int) -> List[str]:
-    starboards = await bot.db.starboards.get_many(guild_id)
-    _emojis = await bot.db.fetchval(
+async def sbemojis(bot: Bot, guild_id: int) -> list[str]:
+    _emojis = await bot.db.fetch(
         """SELECT star_emojis FROM starboards
-        WHERE id=any($1::numeric[])""",
-        [s["id"] for s in starboards],
+        WHERE guild_id=$1""",
+        guild_id,
     )
     if _emojis:
-        emojis = [item for sublist in _emojis for item in sublist]
+        emojis = [
+            emoji for record in _emojis for emoji in record["star_emojis"]
+        ]
     else:
         emojis = []
     return emojis
@@ -49,7 +51,7 @@ async def orig_message(bot: Bot, message_id: int) -> Optional[dict]:
 
 async def embed_message(
     bot: Bot, message: discord.Message, color: str = None, files: bool = True
-) -> Tuple[discord.Embed, List[discord.File]]:
+) -> tuple[discord.Embed, list[discord.File]]:
     nsfw = message.channel.is_nsfw()
     content = utils.escmask(message.system_content)
 
@@ -174,7 +176,9 @@ async def embed_message(
         content = content[:-to_remove]
 
     embed = discord.Embed(
-        color=bot.theme_color if color is None else int(color, 16),
+        color=bot.theme_color
+        if color is None
+        else int(color.replace("#", ""), 16),
         description=content,
     ).set_author(name=str(message.author), icon_url=message.author.avatar_url)
 
@@ -189,7 +193,7 @@ async def embed_message(
                 message.reference.message_id,
             )
             if ref_message is None:
-                ref_content = "*Message was deleted*"
+                ref_content = t_("*Message was deleted*")
             else:
                 ref_author = str(ref_message.author)
                 ref_content = ref_message.system_content
@@ -199,34 +203,33 @@ async def embed_message(
                 ref_content = message.reference.resolved.system_content
                 ref_author = str(ref_message.author)
             else:
-                ref_content = "*Message was deleted*"
+                ref_content = t_("*Message was deleted*")
 
         if ref_content == "":
-            ref_content = "*File Only*"
+            ref_content = t_("*File Only*")
 
         embed.add_field(
-            name=f'Replying to {ref_author or "Unknown"}',
+            name=f'Replying to {ref_author or t_("Unknown")}',
             value=ref_content,
             inline=False,
         )
 
         if type(ref_message) is discord.Message:
-            ref_jump = (
-                f"**[Replying to {ref_author}]({ref_message.jump_url})**\n"
+            ref_jump = t_("**[Replying to {0}]({1})**\n").format(
+                ref_author, ref_message.jump_url
             )
         else:
-            ref_jump = (
+            ref_jump = t_(
                 "**[Replying to Unknown (deleted)]"
-                f"(https://discord.com/channels/{message.reference.guild_id}/"
-                f"{message.reference.channel_id}/"
-                f"{message.reference.message_id})**\n"
-            )
+                "(https://discord.com/channels/{0.guild_id}/"
+                "{0.channel_id}/{0.message_id})**\n"
+            ).format(message.reference)
 
     embed.add_field(
         name=ZERO_WIDTH_SPACE,
         value=str(
             str(ref_jump if ref_message else "")
-            + f"**[Jump to Message]({message.jump_url})**",
+            + t_("**[Jump to Message]({0})**").format(message.jump_url),
         ),
         inline=False,
     )
@@ -354,12 +357,14 @@ async def handle_trashed_message(
     if starboard_message is None:
         return
     embed = discord.Embed(
-        title="Trashed Message",
-        description=(
+        title=t_("Trashed Message"),
+        description=t_(
             "This message was trashed by a moderator. To untrash it, "
-            f"run ```\nuntrash {sql_message['channel_id']}-"
-            f"{sql_message['id']}```\nReason:```\n"
-            f"{utils.escmd(sql_message['trash_reason'])}```"
+            "run ```\nuntrash {0}-{1}```\nReason:```\n{2}```"
+        ).format(
+            sql_message["channel_id"],
+            sql_message["id"],
+            utils.escmd(sql_message["trash_reason"]),
         ),
     )
     try:
@@ -379,12 +384,12 @@ def try_regex(
     except TimeoutError:
         bot.dispatch(
             "guild_log",
-            (
-                f"I tried to match `{pattern}` to "
-                f"[a message]({jump}), but it took too long. "
+            t_(
+                "I tried to match `{0}` to "
+                "[a message]({1}), but it took too long. "
                 "Try improving the efficiency of your regex. If "
                 "you need help, feel free to join the support server."
-            ),
+            ).format(pattern, jump),
             "error",
             message.guild,
         )
@@ -418,11 +423,7 @@ async def handle_starboard(
         int(sql_message["id"]),
     )
 
-    blacklisted = (
-        sql_message["channel_id"] in sql_starboard["channel_bl"]
-        if not sql_starboard["channel_wl"]
-        else True
-    )
+    blacklisted = sql_message["channel_id"] in sql_starboard["channel_bl"]
     whitelisted = sql_message["channel_id"] in sql_starboard["channel_wl"]
     if whitelisted:
         blacklisted = False
@@ -508,12 +509,12 @@ async def handle_starboard(
             except discord.Forbidden:
                 bot.dispatch(
                     "guild_log",
-                    (
+                    t_(
                         "I tried to send a starboard message to "
-                        f"{starboard.mention}, but I'm missing the "
+                        "{0}, but I'm missing the "
                         "proper permissions. Please make sure I have "
                         "the `Send Messages` permission."
-                    ),
+                    ).format(starboard.mention),
                     "error",
                     guild,
                 )
@@ -535,14 +536,14 @@ async def handle_starboard(
                     except discord.Forbidden:
                         bot.dispatch(
                             "guild_log",
-                            (
+                            t_(
                                 "I tried to autoreact to a message on the "
                                 "starboard, but I'm missing the proper "
                                 "permissions. If you don't want me to "
                                 "autoreact to messages, set the AutoReact "
                                 "setting to False with `starboards cs "
-                                f"{starboard.mention} --autoReact False`"
-                            ),
+                                "#{0} --autoReact False`."
+                            ).format(starboard.name),
                             "error",
                             guild,
                         )

@@ -7,6 +7,7 @@ from app import utils
 from app.classes.bot import Bot
 from app.cogs.starboard import starboard_funcs
 from app.cogs.utility import recounter, utility_funcs
+from app.i18n import t_
 
 from . import qa_funcs
 
@@ -48,9 +49,12 @@ class QAEvents(commands.Cog):
         sql_guild = await self.bot.db.guilds.get(payload.guild_id)
         if not sql_guild["qa_enabled"]:
             return
+
         emoji = utils.clean_emoji(payload.emoji)
-        if emoji in await starboard_funcs.sbemojis(self.bot, payload.guild_id):
+        all_emojis = await starboard_funcs.sbemojis(self.bot, payload.guild_id)
+        if emoji in all_emojis:
             return
+
         qa_type = qa_funcs.get_qa_type(emoji, sql_guild)
         if qa_type is None:
             return
@@ -163,7 +167,7 @@ async def qa_save(
         and not member.guild_permissions.manage_messages
     ):
         try:
-            await member.send("You cannot save a trashed message.")
+            await member.send(t_("You cannot save a trashed message."))
         except discord.Forbidden:
             pass
         return

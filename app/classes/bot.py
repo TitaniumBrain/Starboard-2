@@ -6,7 +6,7 @@ import sys
 import textwrap
 import traceback
 from contextlib import redirect_stdout
-from typing import List, Optional, Union
+from typing import Any, Optional, Union
 
 import discord
 from discord.ext import commands
@@ -14,10 +14,9 @@ from discord_slash import SlashCommand
 from dotenv import load_dotenv
 from pretty_help import Navigation, PrettyHelp
 
-from app import checks
+from app import i18n
 from app.classes.ipc_connection import WebsocketConnection
 
-from ..cache import Cache
 from ..database.database import Database
 
 load_dotenv()
@@ -25,30 +24,22 @@ load_dotenv()
 
 class Bot(commands.AutoShardedBot):
     def __init__(self, **kwargs):
-        self.stats = {}
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
 
         self.theme_color = kwargs.pop("theme_color")
         self.dark_theme_color = kwargs.pop("dark_theme_color")
         self.error_color = kwargs.pop("error_color")
-        # self.db: Database = kwargs.pop("db")
-        self.db: Database = Database(
-            os.getenv("DB_NAME"),
-            os.getenv("DB_USER"),
-            os.getenv("DB_PASSWORD"),
-        )
-        self.cache = Cache(self)
-
-        self.pipe = kwargs.pop("pipe")
         self.cluster_name = kwargs.pop("cluster_name")
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
 
-        help_emojis = Navigation("⬅️", "➡️", "⏹️")
+        self._last_result = None
+        self.stats = {}
+        self.locale_cache = {}
 
         super().__init__(
             help_command=PrettyHelp(
                 color=self.theme_color,
-                navigation=help_emojis,
+                navigation=Navigation("⬅️", "➡️", "⏹️"),
                 command_attrs={"name": "commands", "hidden": True},
             ),
             command_prefix=self._prefix_callable,
@@ -58,10 +49,10 @@ class Bot(commands.AutoShardedBot):
                 type=discord.ActivityType.watching, name="@Starboard help"
             ),
         )
-        self._last_result = None
-        log = logging.getLogger(f"Cluster#{self.cluster_name}")
-        log.setLevel(logging.DEBUG)
-        log.handlers = [
+
+        self.log = logging.getLogger(f"Cluster#{self.cluster_name}")
+        self.log.setLevel(logging.DEBUG)
+        self.log.handlers = [
             logging.FileHandler(
                 f"logs/cluster-{self.cluster_name}.log",
                 encoding="utf-8",
@@ -69,27 +60,27 @@ class Bot(commands.AutoShardedBot):
             )
         ]
 
+        self.db: Database = Database(
+            os.getenv("DB_NAME"),
+            os.getenv("DB_USER"),
+            os.getenv("DB_PASSWORD"),
+        )
+        self.pipe = kwargs.pop("pipe")
+        self.slash = SlashCommand(self, override_type=True)
         self.websocket = WebsocketConnection(
             self.cluster_name, self.handle_websocket_command, self.loop
         )
-        self.loop.run_until_complete(self.websocket.ensure_connection())
 
-        log.info(
+        self.loop.run_until_complete(self.websocket.ensure_connection())
+        self.loop.run_until_complete(self.db.init_database())
+
+        self.log.info(
             f'[Cluster#{self.cluster_name}] {kwargs["shard_ids"]}, '
             f'{kwargs["shard_count"]}'
         )
-        self.log = log
-        # self.loop.create_task(self.ensure_ipc())
-
-        self.loop.run_until_complete(self.db.init_database())
-
-        self.slash = SlashCommand(self, override_type=True)
 
         for ext in kwargs.pop("initial_extensions"):
             self.load_extension(ext)
-
-        self.add_check(checks.not_disabled)
-        self.add_check(commands.bot_has_permissions(send_messages=True))
 
         try:
             self.run(kwargs["token"])
@@ -97,6 +88,19 @@ class Bot(commands.AutoShardedBot):
             raise e from e
         else:
             sys.exit(-1)
+
+    async def set_locale(self, message: discord.Message) -> None:
+        if message.guild.id in self.locale_cache:
+            locale = self.locale_cache[message.guild.id]
+        else:
+            guild = await self.db.guilds.get(message.guild.id)
+            if guild:
+                locale = guild["locale"]
+            else:
+                locale = "en_US"
+            self.locale_cache[message.guild.id] = locale
+
+        i18n.current_locale.set(locale)
 
     async def on_message(self, message):
         pass
@@ -107,7 +111,7 @@ class Bot(commands.AutoShardedBot):
 
     async def _prefix_callable(
         self, bot, message: discord.Message
-    ) -> List[str]:
+    ) -> list[str]:
         if message.guild:
             guild = await self.db.guilds.get(message.guild.id)
             if not guild:
@@ -128,6 +132,7 @@ class Bot(commands.AutoShardedBot):
         return content.strip("` \n")
 
     async def close(self, *args, **kwargs):
+        await self.db.pool.close()
         self.log.info("shutting down")
         await self.websocket.close()
         await super().close()
@@ -167,12 +172,12 @@ class Bot(commands.AutoShardedBot):
                 return f"{value}{ret}"
 
     async def handle_websocket_command(
-        self, msg: Union[dict, str]
-    ) -> Optional[dict]:
+        self, msg: dict[str, Any]
+    ) -> Optional[Union[list, str]]:
         cmd = msg["name"]
         data = msg["data"]
 
-        ret = None
+        ret: Optional[Union[list, str]] = None
 
         if cmd == "ping":
             ret = "pong"
