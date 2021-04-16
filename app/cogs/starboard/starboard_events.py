@@ -23,14 +23,15 @@ class StarboardEvents(commands.Cog):
         if not starboard:
             return
         await self.bot.db.starboards.delete(channel.id)
-        self.bot.dispatch(
-            "guild_log",
-            t_("`{0}` was deleted, so I removed that starboard.").format(
-                channel.name
-            ),
-            "info",
-            channel.guild,
-        )
+        async with self.bot.temp_locale(channel.guild):
+            self.bot.dispatch(
+                "guild_log",
+                t_("`{0}` was deleted, so I removed that starboard.").format(
+                    channel.name
+                ),
+                "info",
+                channel.guild,
+            )
 
     @commands.Cog.listener()
     async def on_raw_message_delete(
@@ -38,6 +39,9 @@ class StarboardEvents(commands.Cog):
     ) -> None:
         sb_message = await self.bot.db.sb_messages.get(payload.message_id)
         if sb_message:
+            # Delete the starboard message
+            await self.bot.db.sb_messages.delete(sb_message["id"])
+
             # Trash the message
             await utility_funcs.handle_trashing(
                 self.bot,
@@ -79,11 +83,14 @@ class StarboardEvents(commands.Cog):
         )
         if sql_message is not None:
             # Get the message since it already exists
-            message = await self.bot.cache.fetch_message(
-                int(sql_message["guild_id"]),
-                int(sql_message["channel_id"]),
-                int(sql_message["id"]),
-            )
+            try:
+                message = await self.bot.cache.fetch_message(
+                    int(sql_message["guild_id"]),
+                    int(sql_message["channel_id"]),
+                    int(sql_message["id"]),
+                )
+            except discord.Forbidden:
+                return
             await self.bot.db.reactions.create_reaction_user(
                 emoji, sql_message["id"], payload.user_id
             )
@@ -92,11 +99,14 @@ class StarboardEvents(commands.Cog):
             )
         else:
             # Get the message as well as add it to the database
-            message = await self.bot.cache.fetch_message(
-                payload.guild_id,
-                payload.channel_id,
-                payload.message_id,
-            )
+            try:
+                message = await self.bot.cache.fetch_message(
+                    payload.guild_id,
+                    payload.channel_id,
+                    payload.message_id,
+                )
+            except discord.Forbidden:
+                return
 
             await self.bot.db.users.create(
                 message.author.id, message.author.bot
@@ -130,6 +140,7 @@ class StarboardEvents(commands.Cog):
             payload.member.id,
             author_id,
             payload.guild_id,
+            payload.channel_id,
             1,
         )
 
@@ -166,6 +177,7 @@ class StarboardEvents(commands.Cog):
             payload.user_id,
             orig_message["author_id"],
             payload.guild_id,
+            payload.channel_id,
             -1,
         )
 

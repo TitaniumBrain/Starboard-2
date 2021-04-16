@@ -1,8 +1,10 @@
+import time
+
 import discord
 from discord.ext import commands
 
 import config
-from app.i18n import t_
+from app.i18n import ft_, t_
 from app.utils import ms
 
 from ...classes.bot import Bot
@@ -13,7 +15,7 @@ class Base(commands.Cog):
 
     def __init__(self, bot: Bot) -> None:
         self.bot = bot
-        self.about_starboard = t_(
+        self.about_starboard = ft_(
             "A Starboard is a bot that allows users of a server"
             ' to "vote" to "pin" a message. The main idea is this:\n'
             " - You set a channel as the starboard, typically called "
@@ -26,6 +28,47 @@ class Base(commands.Cog):
             "Starboard will essentially copy the message and repost it in "
             "your starboard."
         )
+
+    @commands.command(name="credits", brief="Show credits")
+    @commands.bot_has_permissions(embed_links=True)
+    @commands.guild_only()
+    async def show_credits(self, ctx: commands.Context):
+        """Show credits for Starboard"""
+        embed = (
+            discord.Embed(
+                title=t_("Starboard Credits"),
+                color=self.bot.theme_color,
+            )
+            .add_field(
+                name=t_("Owner(s)"),
+                value=", ".join(
+                    [
+                        str(await self.bot.cache.fetch_user(uid))
+                        for uid in config.OWNER_IDS
+                    ]
+                ),
+            )
+            .add_field(
+                name=t_("Developer(s)"),
+                value=", ".join(
+                    [
+                        str(await self.bot.cache.fetch_user(uid))
+                        for uid in config.DEVELOPERS
+                    ]
+                ),
+            )
+            .add_field(
+                name=t_("Translator(s)"),
+                value=", ".join(
+                    [
+                        str(await self.bot.cache.fetch_user(uid))
+                        for uid in config.TRANSLATORS
+                    ]
+                ),
+            )
+        )
+
+        await ctx.send(embed=embed)
 
     @commands.command(name="help", brief="Get help with Starboard")
     @commands.bot_has_permissions(embed_links=True)
@@ -95,7 +138,25 @@ class Base(commands.Cog):
         cluster = self.bot.cluster_name
         shard = self.bot.get_shard(ctx.guild.shard_id if ctx.guild else 0)
 
-        embed = discord.Embed(title=t_("Pong!"), color=self.bot.theme_color)
+        t1 = time.time()
+        m = await ctx.send("Pinging...")
+        t2 = time.time()
+        await m.edit(content="Editing...")
+        t3 = time.time()
+        await m.delete()
+        t4 = time.time()
+
+        send = t2 - t1
+        edit = t3 - t2
+        delete = t4 - t3
+
+        embed = discord.Embed(
+            title=t_("Pong!"),
+            color=self.bot.theme_color,
+            description=t_(
+                "Send: {0}ms\n" "Edit: {1}ms\n" "Delete: {2}ms"
+            ).format(ms(send), ms(edit), ms(delete)),
+        )
         embed.add_field(
             name=t_("Cluster **{0}**").format(cluster),
             value=t_("{0} ms").format(ms(self.bot.latency)),

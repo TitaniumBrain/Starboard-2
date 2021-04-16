@@ -1,10 +1,8 @@
-import asyncio
 import datetime
 import os
 import traceback
 from typing import Any
 
-import aiohttp
 import discord
 from discord import AsyncWebhookAdapter, Webhook
 from discord.ext import commands, flags
@@ -18,33 +16,23 @@ from ...classes.bot import Bot
 
 load_dotenv()
 
-IGNORED_ERRORS = [commands.CommandNotFound, errors.AllCommandsDisabled]
-SEND_HELP = [
-    commands.MissingRequiredArgument,
-    discord.InvalidArgument,
-    commands.BadArgument,
+IGNORED_ERRORS = (
+    commands.CommandNotFound,
+    errors.AllCommandsDisabled,
+    errors.CannotUseCommands,
+)
+SEND_HELP = (
+    errors.MissingRequiredArgument,
     flags.ArgumentParsingError,
-]
-EXPECTED_ERRORS = [
-    errors.ConversionError,
-    errors.DoesNotExist,
-    errors.AlreadyExists,
-    errors.CommandDisabled,
-    commands.MissingRequiredArgument,
-    commands.ChannelNotFound,
-    commands.RoleNotFound,
+)
+EXPECTED_ERRORS = (
+    commands.BadArgument,
     commands.NotOwner,
-    commands.CommandOnCooldown,
-    commands.ExpectedClosingQuoteError,
-    commands.BotMissingPermissions,
-    discord.Forbidden,
-    discord.InvalidArgument,
-    commands.BadArgument,
-    commands.NoPrivateMessage,
-    commands.UserNotFound,
-    commands.RoleNotFound,
+    commands.UserInputError,
+    commands.CheckFailure,
+    errors.CommandOnCooldown,
     flags.ArgumentParsingError,
-]
+)
 UPTIME = os.getenv("UPTIME_HOOK")
 ERROR = os.getenv("ERROR_HOOK")
 GUILD = os.getenv("GUILD_HOOK")
@@ -54,7 +42,6 @@ class BaseEvents(commands.Cog):
     def __init__(self, bot: Bot) -> None:
         self.bot = bot
 
-        self.session: aiohttp.ClientSession = None
         self.guild_webhook: Webhook = None
         self.error_webhook: Webhook = None
         self.uptime_webhook: Webhook = None
@@ -64,41 +51,30 @@ class BaseEvents(commands.Cog):
             "info": {"color": self.bot.theme_color, "title": "Info"},
         }
 
-    def cog_unload(self):
-        asyncio.ensure_future(self.session.close())
-
-    async def get_session(self) -> None:
-        if self.session:
-            return
-        self.session = aiohttp.ClientSession()
-
     async def uptime_log(self, content: str) -> None:
         if not UPTIME:
             return
-        await self.get_session()
         if not self.uptime_webhook:
             self.uptime_webhook = Webhook.from_url(
-                UPTIME, adapter=AsyncWebhookAdapter(self.session)
+                UPTIME, adapter=AsyncWebhookAdapter(self.bot.session)
             )
         await self.uptime_webhook.send(content, username="Starboard Uptime")
 
     async def error_log(self, content: str) -> None:
         if not ERROR:
             return
-        await self.get_session()
         if not self.error_webhook:
             self.error_webhook = Webhook.from_url(
-                ERROR, adapter=AsyncWebhookAdapter(self.session)
+                ERROR, adapter=AsyncWebhookAdapter(self.bot.session)
             )
         await self.error_webhook.send(content, username="Starboard Errors")
 
     async def join_leave_log(self, embed: discord.Embed) -> None:
         if not GUILD:
             return
-        await self.get_session()
         if not self.guild_webhook:
             self.guild_webhook = Webhook.from_url(
-                GUILD, adapter=AsyncWebhookAdapter(self.session)
+                GUILD, adapter=AsyncWebhookAdapter(self.bot.session)
             )
         await self.guild_webhook.send(
             embed=embed, username="Starboard Guild Log"
@@ -168,9 +144,9 @@ class BaseEvents(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message) -> None:
-        await self.bot.set_locale(message)
         if message.author.bot:
             return
+        await self.bot.set_locale(message.author)
         if message.content.replace("!", "") == self.bot.user.mention:
             p = utils.escmd((await self.bot.get_prefix(message))[0])
             await message.channel.send(t_("My prefix is `{0}`.").format(p))
@@ -185,11 +161,14 @@ class BaseEvents(commands.Cog):
             e = e.original
         except AttributeError:
             pass
-        if type(e) in IGNORED_ERRORS:
+
+        e = errors.convert_error(e)
+
+        if isinstance(e, IGNORED_ERRORS):
             return
-        elif type(e) in EXPECTED_ERRORS:
+        elif isinstance(e, EXPECTED_ERRORS):
             try:
-                if type(e) in SEND_HELP:
+                if isinstance(e, SEND_HELP):
                     p = utils.clean_prefix(ctx)
                     await ctx.send(
                         f"{e}\n\n```{p}{ctx.command} "
@@ -206,7 +185,7 @@ class BaseEvents(commands.Cog):
                 )
         else:
             embed = discord.Embed(
-                title="Something's Not Right",
+                title=t_("Something's Not Right"),
                 description=t_(
                     "Something went wrong while "
                     "running this command. If the "

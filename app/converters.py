@@ -1,9 +1,10 @@
 import re
-from typing import Union
+from typing import Any, Callable, Union
 
 import discord
 import emoji
-from discord.ext import commands, flags
+from discord.ext import commands
+from discord.ext.commands.errors import ChannelNotFound, RoleNotFound
 
 from app.i18n import t_
 
@@ -16,7 +17,7 @@ def myhex(arg: str) -> str:
     try:
         int(arg, 16)
     except ValueError:
-        raise flags.ArgumentParsingError(
+        raise commands.BadArgument(
             t_(
                 "I couldn't interpret `{0}` as a hex value. "
                 "Please pass something like `#FFE16C`."
@@ -33,7 +34,7 @@ def mybool(arg: str) -> bool:
         return True
     elif arg.lower() in no:
         return False
-    raise flags.ArgumentParsingError(
+    raise commands.BadArgument(
         t_(
             "I couldn't interpret `{0}` as yes or no. Please "
             "pass one of 'yes', 'no', 'true', or 'false'."
@@ -43,10 +44,10 @@ def mybool(arg: str) -> bool:
 
 def myint(arg: str) -> int:
     try:
-        result = int(arg)
+        result = int(arg.replace(",", ""))
         return result
     except ValueError:
-        raise flags.ArgumentParsingError(
+        raise commands.BadArgument(
             t_(
                 "I couldn't interpret `{0}` as an integer (number). "
                 "Please pass something like `10` or `2`."
@@ -56,15 +57,53 @@ def myint(arg: str) -> int:
 
 def myfloat(arg: str) -> float:
     try:
-        result = float(arg)
+        result = float(arg.replace(",", ""))
         return result
     except ValueError:
-        raise flags.ArgumentParsingError(
+        raise commands.BadArgument(
             t_(
                 "I couldn't interpret `{0}` as a floating-point "
                 "number. Please pass something like `10.9` or `6`."
             ).format(arg)
         )
+
+
+class OrNone(commands.Converter):
+    def __init__(
+        self, subconverter: Union[commands.Converter, Callable[[str], Any]]
+    ):
+        self.subconverter = subconverter
+
+    async def convert(self, ctx: commands.Context, arg: str) -> Any:
+        acceptable_nones = ["none", "default"]
+        try:
+            if isinstance(self.subconverter, commands.Converter):
+                result = await self.subconverter.convert(ctx, arg)
+            else:
+                result = self.subconverter(arg)
+            return result
+        except Exception:
+            if arg.lower() in acceptable_nones:
+                return None
+            raise
+
+
+class GuildMessage(commands.MessageConverter):
+    async def convert(self, ctx: commands.Context, arg: str):
+        m = await super().convert(ctx, arg)
+        if m.guild != ctx.guild:
+            raise commands.MessageNotFound(arg)
+        return m
+
+
+class Role(commands.RoleConverter):
+    """Same as default role converter, except that it ignores
+    @everyone"""
+
+    async def convert(self, ctx: commands.Context, arg: str) -> discord.Role:
+        role = await super().convert(ctx, arg)
+        if role.id == ctx.guild.default_role:
+            raise RoleNotFound(arg)
 
 
 class Emoji(commands.Converter):
@@ -82,94 +121,31 @@ class Emoji(commands.Converter):
 
         if emoji_id is not None:
             result = discord.utils.get(ctx.guild.emojis, id=int(emoji_id))
-            return result
-        elif arg in emoji.UNICODE_EMOJI["en"]:
-            return arg
-
-        # If we make it to this point, the emoji doesn't exist
+            if result:
+                return result
+        else:
+            decoded = emoji.demojize(arg)
+            search = re.findall(":[^:]+:", decoded)
+            if len(search) > 0:
+                as_emoji = search[0]
+                as_emoji = emoji.emojize(as_emoji)
+                if as_emoji in emoji.UNICODE_EMOJI["en"]:
+                    return as_emoji
 
         if emoji_id is not None:
-            # Means that the emoji is a custom emoji from another server
-            raise errors.DoesNotExist(
-                t_(
-                    "It looks like `{0}` is a custom emoji, but "
-                    "from another server. We can only add custom emojis "
-                    "from this server."
-                ).format(arg)
-            )
-        # Just isn't emojis
-        raise errors.DoesNotExist(
-            t_("I could not interpret `{0}` as an emoji.").format(arg)
-        )
+            raise errors.CustomEmojiFromOtherGuild(arg)
+        raise errors.NotAnEmoji(arg)
 
 
-class MessageLink(commands.MessageConverter):
-    async def convert(self, ctx: commands.Context, arg: str) -> None:
-        if arg == "^":
-            try:
-                message = (await ctx.channel.history(limit=2).flatten())[1]
-            except discord.Forbidden:
-                raise discord.Forbidden(
-                    t_(
-                        "I can't read the message history of this channel, "
-                        "so I don't know what message that is."
-                    )
-                )
-        else:
-            try:
-                message = await super().convert(ctx, arg)
-            except commands.MessageNotFound as e:
-                raise discord.InvalidArgument(
-                    t_(
-                        "I couldn't find the message `{0}`. "
-                        "Please make sure that the message link/id is valid, "
-                        "and that it is in this server."
-                    ).format(e.argument)
-                )
-            except commands.ChannelNotFound as e:
-                raise discord.InvalidArgument(
-                    t_(
-                        "I couldn't find the channel `{0}`. "
-                        "Please make sure the message link/id is valid, "
-                        "and that it is in this server."
-                    ).format(e.argument)
-                )
-            except commands.ChannelNotReadable as e:
-                raise discord.Forbidden(
-                    t_("I can't read messages in the channel `{0}`.").format(
-                        e.argument
-                    )
-                )
-        return message
-
-
-class Starboard(commands.Converter):
+class Starboard(commands.TextChannelConverter):
     async def convert(self, ctx: commands.Context, arg: str) -> SQLObject:
-        mention_pattern = "^<#[0-9]+>$"
-        digit_pattern = "^[0-9][0-9]*[0-9]$"
+        channel = await super().convert(ctx, arg)
+        if channel.guild != ctx.guild:
+            raise ChannelNotFound(arg)
 
-        channel_id = None
-
-        by_name = discord.utils.get(ctx.guild.channels, name=arg)
-        if by_name is not None:
-            channel_id = by_name.id
-        elif re.match(mention_pattern, arg):
-            channel_id = int(arg[2:-1])
-        elif re.match(digit_pattern, arg):
-            channel_id = int(arg)
-
-        if channel_id is None:
-            raise commands.errors.ChannelNotFound(arg)
-
-        channel = ctx.guild.get_channel(channel_id)
-        if channel is None:
-            raise commands.errors.ChannelNotFound(arg)
-
-        sql_starboard = await ctx.bot.db.starboards.get(channel_id)
+        sql_starboard = await ctx.bot.db.starboards.get(channel.id)
         if sql_starboard is None:
-            raise errors.DoesNotExist(
-                t_("{0} is not a starboard.").format(channel.mention)
-            )
+            raise errors.NotStarboard(channel.mention)
 
         return SQLObject(channel, sql_starboard)
 
@@ -177,12 +153,12 @@ class Starboard(commands.Converter):
 class ASChannel(commands.TextChannelConverter):
     async def convert(self, ctx: commands.Context, arg: str) -> SQLObject:
         channel = await super().convert(ctx, arg)
+        if channel.guild != ctx.guild:
+            raise ChannelNotFound(arg)
 
         sql_aschannel = await ctx.bot.db.aschannels.get(channel.id)
         if not sql_aschannel:
-            raise errors.DoesNotExist(
-                t_("{0} is not an AutoStar channel.").format(channel.mention)
-            )
+            raise errors.NotAutoStarChannel(channel.mention)
 
         return SQLObject(channel, sql_aschannel)
 
@@ -193,7 +169,15 @@ class Command(commands.Converter):
     ) -> commands.Command:
         cmd = ctx.bot.get_command(arg)
         if not cmd:
-            raise errors.DoesNotExist(
-                t_("No commands called `{0}` found.").format(arg)
-            )
+            raise errors.NotCommand(arg)
         return cmd
+
+
+class PermGroup(commands.Converter):
+    async def convert(self, ctx: commands.Context, arg: str) -> dict:
+        permgroup = await ctx.bot.db.permgroups.get_name(ctx.guild.id, arg)
+
+        if not permgroup:
+            raise errors.PermGroupNotFound(arg)
+
+        return permgroup

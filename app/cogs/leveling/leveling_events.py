@@ -4,6 +4,7 @@ from discord.ext import commands
 
 from app import cooldowns
 from app.classes.bot import Bot
+from app.cogs.permroles import pr_functions
 
 from . import leveling_funcs
 
@@ -15,10 +16,47 @@ class LevelingEvents(commands.Cog):
 
     @commands.Cog.listener()
     async def on_star_update(
-        self, giver_id: int, receiver_id: int, guild_id: int, points: int
+        self,
+        giver_id: int,
+        receiver_id: int,
+        guild_id: int,
+        channel_id: int,
+        points: int,
     ) -> None:
         if giver_id == receiver_id:
             return
+
+        # I need to check two things:
+        # 1. That the star giver has permission to star messages
+        # 2. That the star receiver has the gainXP permission.
+        # Steps:
+        # 1. We first calculate all valid starEmojis, ignoring any starboards
+        #    where the giver cannot give stars.
+        # 2. If the emoji that was given is in still valid, then
+        #    check if the receiver can receive XP *based on the channel*,
+        #    not starboard.
+
+        guild = self.bot.get_guild(guild_id)
+        _result = await self.bot.cache.get_members(
+            [giver_id, receiver_id], guild
+        )
+        if giver_id not in _result:
+            return
+        if receiver_id not in _result:
+            return
+        receiver = _result[receiver_id]
+
+        receiver_perms = await pr_functions.get_perms(
+            self.bot,
+            [r.id for r in receiver.roles],
+            guild_id,
+            channel_id,
+            None,
+        )
+        if not receiver_perms["gain_xp"]:
+            gain_xp = False
+        else:
+            gain_xp = True
 
         await self.bot.db.members.create(giver_id, guild_id)
         sql_giver = await self.bot.db.members.get(giver_id, guild_id)
@@ -41,13 +79,21 @@ class LevelingEvents(commands.Cog):
             guild_id,
         )
 
+        if not gain_xp:
+            return
+
         leveled_up: Optional[int] = None
 
-        # TODO(Circuit): Make this take the rate/per of a guild
-        bucket = self.cooldown.get_bucket((giver_id, receiver_id), 3, 60)
-        retry_after = bucket.update_rate_limit()
-        if retry_after:
-            return
+        sql_guild = await self.bot.db.guilds.get(guild_id)
+        cooldown, per = sql_guild["xp_cooldown"], sql_guild["xp_cooldown_per"]
+
+        if per != 0:
+            bucket = self.cooldown.get_bucket(
+                (giver_id, receiver_id), cooldown, per
+            )
+            retry_after = bucket.update_rate_limit()
+            if retry_after:
+                return
 
         async with self.bot.db.pool.acquire() as con:
             await con.execute(
@@ -77,12 +123,9 @@ class LevelingEvents(commands.Cog):
 
         if leveled_up:
             guild = self.bot.get_guild(guild_id)
-            _users = await self.bot.cache.get_members([receiver_id], guild)
-            if receiver_id not in _users:
-                return
-            user = _users[receiver_id]
-            if not user.bot:
-                self.bot.dispatch("level_up", guild, user, leveled_up)
+            await self.bot.set_locale(guild)
+            if not receiver.bot:
+                self.bot.dispatch("level_up", guild, receiver, leveled_up)
 
 
 def setup(bot: Bot) -> None:

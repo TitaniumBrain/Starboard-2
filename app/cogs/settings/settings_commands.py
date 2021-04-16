@@ -6,13 +6,13 @@ from discord.ext import commands, flags
 from app import converters, errors, menus, utils
 from app.classes.bot import Bot
 from app.cogs.quick_actions import qa_funcs
-from app.i18n import current_locale, locales, t_
+from app.i18n import locales, t_
 
 
 async def raise_if_exists(emoji: str, ctx: commands.Context) -> None:
     guild = await ctx.bot.db.guilds.get(ctx.guild.id)
     if qa_funcs.get_qa_type(emoji, guild) is not None:
-        raise errors.AlreadyExists(t_("That is already a QuickAction!"))
+        raise errors.AlreadyQuickAction()
 
 
 class Settings(commands.Cog):
@@ -25,7 +25,6 @@ class Settings(commands.Cog):
         name="guildlanguage",
         aliases=["guildlang"],
         brief="Set the language for the server",
-        invoke_without_command=True,
     )
     @commands.has_guild_permissions(manage_guild=True)
     @commands.guild_only()
@@ -51,7 +50,6 @@ class Settings(commands.Cog):
     @commands.command(
         name="disabled",
         brief="Lists disabled commands",
-        invoke_without_command=True,
     )
     @commands.bot_has_permissions(embed_links=True)
     @commands.guild_only()
@@ -94,7 +92,7 @@ class Settings(commands.Cog):
         name = command.qualified_name
         new_commands = guild["disabled_commands"]
         if name in new_commands:
-            raise errors.AlreadyExists(t_("That command is already disabled."))
+            raise errors.AlreadyDisabled(name)
         new_commands.append(name)
         await self.bot.db.execute(
             """UPDATE guilds
@@ -115,7 +113,7 @@ class Settings(commands.Cog):
         name = command.qualified_name
         new_commands = guild["disabled_commands"]
         if name not in new_commands:
-            raise errors.DoesNotExist("That command is not disabled.")
+            raise errors.NotDisabled(name)
         new_commands.remove(name)
         await self.bot.db.execute(
             """UPDATE guilds
@@ -130,6 +128,7 @@ class Settings(commands.Cog):
         name="settings", aliases=["options"], brief="View guild settings"
     )
     @commands.bot_has_permissions(embed_links=True)
+    @commands.guild_only()
     async def guild_settings(self, ctx: commands.Context) -> None:
         """Lists the settings for the curent server.
         A list of commands to change these settings can
@@ -148,17 +147,43 @@ class Settings(commands.Cog):
         embed = discord.Embed(
             title=t_("Settings for {0}:").format(ctx.guild.name),
             description=(
-                f"language: **{current_locale.get()}**\n"
+                f"language: **{guild['locale']}**\n"
                 f"logChannel: {log_channel}\n"
                 f"levelChannel: {level_channel}\n"
                 f"pingOnLevelUp: **{guild['ping_user']}**\n"
                 f"allowCommands: **{guild['allow_commands']}**\n"
                 f"quickActionsOn: **{guild['qa_enabled']}**\n"
-                f"disabledCommands: **{len(guild['disabled_commands'])}**"
+                f"cooldown: **{guild['xp_cooldown']}**"
+                f"/**{guild['xp_cooldown_per']}**s\n"
+                f"disabledCommands: **{len(guild['disabled_commands'])}**\n"
             ),
             color=self.bot.theme_color,
         )
         await ctx.send(embed=embed)
+
+    @commands.command(name="cooldown", brief="Sets the cooldown for xp")
+    @commands.has_guild_permissions(manage_messages=True)
+    @commands.bot_has_permissions(embed_links=True)
+    @commands.guild_only()
+    async def set_cooldown(
+        self, ctx: commands.Context, ammount: int, per: int
+    ):
+        """Sets the cooldown for gaining XP. The default is
+        3 XP per 60 seconds"""
+        sql_guild = await self.bot.db.guilds.get(ctx.guild.id)
+        await self.bot.db.guilds.set_cooldown(ctx.guild.id, ammount, per)
+
+        orig = (
+            f"**{sql_guild['xp_cooldown']}**/"
+            f"**{sql_guild['xp_cooldown_per']}**s"
+        )
+        new = f"**{ammount}**/**{per}**s"
+
+        await ctx.send(
+            embed=utils.cs_embed(
+                {"cooldown": (orig, new)}, self.bot, noticks=True
+            )
+        )
 
     @commands.group(
         name="quickactions",
@@ -384,30 +409,20 @@ class Settings(commands.Cog):
     async def add_prefix(
         self, ctx: commands.Context, prefix: str, **options
     ) -> None:
-        """Adds a prefix.
-
-        Usage:
-            prefixes add <prefix> <options>
-        Options:
-            --space: Wether or not to add a space at
-                the end of the prefix.
-        Examples:
-            sb!prefixes add star --space
-            sb!prefixes add sb?
+        """Adds a prefix. Add --space to the end if you want
+        a space at the end of the prefix.
         """
         if options["space"] is True:
             prefix += " "
         if len(prefix) > 8:
-            raise discord.InvalidArgument(
+            raise commands.BadArgument(
                 t_("`{0}` is too long (max length is 8 characters).").format(
                     prefix
                 )
             )
         guild = await self.bot.db.guilds.get(ctx.guild.id)
         if prefix in guild["prefixes"]:
-            raise errors.AlreadyExists(
-                t_("`{0}` is already a prefix.").format(prefix)
-            )
+            raise errors.AlreadyPrefix(prefix)
         new_prefixes = guild["prefixes"] + [prefix]
         await self.bot.db.execute(
             """UPDATE guilds
@@ -416,6 +431,7 @@ class Settings(commands.Cog):
             new_prefixes,
             ctx.guild.id,
         )
+        await self.bot.db.guilds.cache.delete(ctx.guild.id)
 
         await ctx.send(t_("Added `{0}` to the prefixes.").format(prefix))
 
@@ -439,16 +455,18 @@ class Settings(commands.Cog):
                     matches += 1
                     match = p
             if matches > 1:
-                raise discord.InvalidArgument(
+                await ctx.send(
                     t_(
                         "I found {0} matches for `{1}`. "
                         "Please be more specific."
                     ).format(matches, prefix)
                 )
+                return
             elif not match:
-                raise errors.DoesNotExist(
+                await ctx.send(
                     t_("No matches found for `{0}`.").format(prefix)
                 )
+                return
             else:
                 if not await menus.Confirm(
                     t_(
@@ -468,6 +486,7 @@ class Settings(commands.Cog):
             new_prefixes,
             ctx.guild.id,
         )
+        await self.bot.db.guilds.cache.delete(ctx.guild.id)
 
         await ctx.send(
             t_("Removed `{0}` from the prefixes.").format(to_remove)
@@ -506,6 +525,8 @@ class Settings(commands.Cog):
     async def set_level_channel(
         self, ctx: commands.Context, channel: discord.TextChannel = None
     ) -> None:
+        """Sets the channel where messages will be sent when a user
+        levels up."""
         if channel:
             perms = channel.permissions_for(ctx.guild.me)
             missing_perms = []
@@ -541,6 +562,7 @@ class Settings(commands.Cog):
     async def set_level_ping(
         self, ctx: commands.Context, ping: converters.mybool
     ) -> None:
+        """Whether or not to ping users when they level up"""
         await self.bot.db.execute(
             """UPDATE guilds SET ping_user=$1 WHERE id=$2""",
             ping,
@@ -562,10 +584,7 @@ class Settings(commands.Cog):
     ) -> None:
         """Set the log channel of the current server.
         This is where all errors and important info
-        will be sent.
-
-        Options:
-            channel: What channel to set the log channel to"""
+        will be sent."""
         if channel:
             perms = channel.permissions_for(ctx.guild.me)
             missing_perms = []
@@ -585,19 +604,21 @@ class Settings(commands.Cog):
             channel.id if channel else None,
             ctx.guild.id,
         )
+        await self.bot.db.guilds.cache.delete(ctx.guild.id)
         if channel:
             await ctx.send(
                 t_("Set the log channel to {0}.").format(channel.mention)
             )
-            self.bot.dispatch(
-                "guild_log",
-                t_(
-                    "This channel has been set as a log channel. I'll send "
-                    "errors and important info here."
-                ),
-                "info",
-                ctx.guild,
-            )
+            async with self.bot.temp_locale(ctx.guild):
+                self.bot.dispatch(
+                    "guild_log",
+                    t_(
+                        "This channel has been set as a log channel. I'll "
+                        "send errors and important info here."
+                    ),
+                    "info",
+                    ctx.guild,
+                )
         else:
             await ctx.send("Unset the log channel.")
 
@@ -610,6 +631,8 @@ class Settings(commands.Cog):
     async def set_allow_commands(
         self, ctx: commands.Context, value: converters.mybool
     ) -> None:
+        """Whether or not non-admins can use commands. Will be
+        overwritten by permroles."""
         await self.bot.db.execute(
             """UPDATE guilds
             SET allow_commands=$1

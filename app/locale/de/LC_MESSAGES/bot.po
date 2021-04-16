@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-04-02 11:43-0400\n"
+"POT-Creation-Date: 2021-04-16 10:04-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,11 +17,11 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: app/utils.py:62
+#: app/utils.py:64
 msgid "Changed Settings:"
 msgstr ""
 
-#: app/utils.py:78
+#: app/utils.py:80
 msgid "No changed settings."
 msgstr ""
 
@@ -29,187 +29,289 @@ msgstr ""
 msgid "None"
 msgstr ""
 
-#: app/converters.py:20
+#: app/converters.py:22
 #, python-brace-format
 msgid ""
 "I couldn't interpret `{0}` as a hex value. Please pass something like "
 "`#FFE16C`."
 msgstr ""
 
-#: app/converters.py:37
+#: app/converters.py:39
 #, python-brace-format
 msgid ""
 "I couldn't interpret `{0}` as yes or no. Please pass one of 'yes', 'no', "
 "'true', or 'false'."
 msgstr ""
 
-#: app/converters.py:50
+#: app/converters.py:52
 #, python-brace-format
 msgid ""
 "I couldn't interpret `{0}` as an integer (number). Please pass something "
 "like `10` or `2`."
 msgstr ""
 
-#: app/converters.py:63
+#: app/converters.py:65
 #, python-brace-format
 msgid ""
 "I couldn't interpret `{0}` as a floating-point number. Please pass something "
 "like `10.9` or `6`."
 msgstr ""
 
-#: app/converters.py:94
+#: app/errors.py:14
 #, python-brace-format
-msgid ""
-"It looks like `{0}` is a custom emoji, but from another server. We can only "
-"add custom emojis from this server."
-msgstr ""
-
-#: app/converters.py:101
-#, python-brace-format
-msgid "I could not interpret `{0}` as an emoji."
-msgstr ""
-
-#: app/converters.py:113
-msgid ""
-"I can't read the message history of this channel, so I don't know what "
-"message you want me to force."
-msgstr ""
-
-#: app/converters.py:123
-#, python-brace-format
-msgid ""
-"I couldn't find the message `{0}`. Please make sure that the message link/id "
-"is valid, and that it is in this server."
-msgstr ""
-
-#: app/converters.py:131
-#, python-brace-format
-msgid ""
-"I couldn't find the channel `{0}`. Please make sure the message link/id is "
-"valid, and that it is in this server."
-msgstr ""
-
-#: app/converters.py:138
-#, python-brace-format
-msgid "I can't read messages in the channel `{0}`."
-msgstr ""
-
-#: app/converters.py:170 app/cogs/starboard/starboard_commands.py:134
-#, python-brace-format
-msgid "{0} is not a starboard."
-msgstr ""
-
-#: app/converters.py:183
-#, python-brace-format
-msgid "{0} is not an AutoStar channel."
-msgstr ""
-
-#: app/converters.py:196
-#, python-brace-format
-msgid "No commands called `{0}` found."
+msgid "{0} is already a PermRole on the PermGroup {1}."
 msgstr ""
 
 #: app/errors.py:22
 #, python-brace-format
+msgid "{0} is not a PermRole on the PermGroup {1}."
+msgstr ""
+
+#: app/errors.py:31
+#, python-brace-format
+msgid "I couldn't find any permgroups with the name {0}."
+msgstr ""
+
+#: app/errors.py:39
+#, python-brace-format
+msgid "{0} is already the name of another Permission Group."
+msgstr ""
+
+#: app/errors.py:46
+#, python-brace-format
+msgid "`{0}` is not an emoji."
+msgstr ""
+
+#: app/errors.py:53
+#, python-brace-format
+msgid ""
+"{0} is an emoji, but from another server. Please pass a default emoji or a "
+"custom emoji from this server."
+msgstr ""
+
+#: app/errors.py:62
+#, python-brace-format
+msgid "The channel {0} is not a starboard."
+msgstr ""
+
+#: app/errors.py:68
+#, python-brace-format
+msgid "`{0}` is not a valid command."
+msgstr ""
+
+#: app/errors.py:74
+#, python-brace-format
+msgid "The channel {0} is not an AutoStarChannel."
+msgstr ""
+
+#: app/errors.py:80
+#, python-brace-format
+msgid "{0} is not an emoji on the AutoStarChannel {1}."
+msgstr ""
+
+#: app/errors.py:89
+#, python-brace-format
+msgid "{0} is already an emoji on the AutoStarChannel {1}."
+msgstr ""
+
+#: app/errors.py:96
+#, python-brace-format
+msgid "{0} is not an emoji on the starboard {1}."
+msgstr ""
+
+#: app/errors.py:104
+#, python-brace-format
+msgid "{0} is already an emoji on the starboard {1}."
+msgstr ""
+
+#: app/errors.py:112
+#, python-brace-format
+msgid "{0} is not blacklisted on {1}."
+msgstr ""
+
+#: app/errors.py:120
+#, python-brace-format
+msgid "{0} is already blacklisted on {1}."
+msgstr ""
+
+#: app/errors.py:128
+#, python-brace-format
+msgid "{0} is not whitelisted on {1}."
+msgstr ""
+
+#: app/errors.py:136
+#, python-brace-format
+msgid "{0} is already whitelisted on {1}."
+msgstr ""
+
+#: app/errors.py:145
+#, python-brace-format
 msgid "{0} is not a valid language code."
 msgstr ""
 
-#: app/database/database_functions/aschannels.py:39
-msgid "That channel is already a starboard!"
+#: app/errors.py:151
+msgid "That message does not exist in the database."
 msgstr ""
 
-#: app/database/database_functions/aschannels.py:74
+#: app/errors.py:157
 #, python-brace-format
-msgid "No AutoStarChannel found with id {0}."
+msgid "The command `{0}` is not disabled."
 msgstr ""
 
-#: app/database/database_functions/aschannels.py:96
-msgid "minChars cannot be less than 0."
+#: app/errors.py:163
+#, python-brace-format
+msgid "{0} is already a starboard."
+msgstr ""
+
+#: app/errors.py:169
+#, python-brace-format
+msgid "The command `{0}` is already disabled."
+msgstr ""
+
+#: app/errors.py:175
+msgid "That emoji is already used for another QuickAction"
+msgstr ""
+
+#: app/errors.py:181
+#, python-brace-format
+msgid "`{0}` is already a prefix."
+msgstr ""
+
+#: app/errors.py:188
+msgid "A channel cannot be both a starboard and an AutoStarChannel"
+msgstr ""
+
+#: app/errors.py:197
+#, python-brace-format
+msgid "Message `{0}` not found."
+msgstr ""
+
+#: app/errors.py:208
+#, python-brace-format
+msgid "`{0}` is a required argument that you didn't pass."
+msgstr ""
+
+#: app/errors.py:221
+#, python-brace-format
+msgid "Channel `{0}` not found."
+msgstr ""
+
+#: app/errors.py:231
+#, python-brace-format
+msgid "I can't read messages in {0}."
+msgstr ""
+
+#: app/errors.py:241
+#, python-brace-format
+msgid "Role `{0}` not found."
+msgstr ""
+
+#: app/errors.py:251
+#, python-brace-format
+msgid "User `{0}` not found."
+msgstr ""
+
+#: app/errors.py:263
+#, python-brace-format
+msgid "You are on cooldown. Try again in {0}s."
+msgstr ""
+
+#: app/errors.py:276
+#, python-brace-format
+msgid "Expected closing {0}."
+msgstr ""
+
+#: app/errors.py:304
+#, python-brace-format
+msgid "The command `{0}` has been disabled by the moderators of this server."
+msgstr ""
+
+#: app/errors.py:327
+#, python-brace-format
+msgid ""
+"Bot requires the following permissions to run this command:\n"
+"{0}"
+msgstr ""
+
+#: app/errors.py:340
+msgid "This command cannot be used in private messages."
 msgstr ""
 
 #: app/database/database_functions/aschannels.py:100
+msgid "minChars cannot be less than 0."
+msgstr ""
+
+#: app/database/database_functions/aschannels.py:103
 msgid "minChars cannot be grater than 2,000."
 msgstr ""
 
-#: app/database/database_functions/aschannels.py:125
-#: app/cogs/autostarchannels/asc_commands.py:177
-#, python-brace-format
-msgid "{0} is already an emoji on {1}."
+#: app/database/database_functions/guilds.py:23
+msgid "The cooldown ammount must be greater than 0."
 msgstr ""
 
-#: app/database/database_functions/aschannels.py:137
-#: app/cogs/autostarchannels/asc_commands.py:213
-#, python-brace-format
-msgid "{0} is not an emoji on {1}."
+#: app/database/database_functions/guilds.py:27
+msgid "The cooldown time must be 0 or greater."
 msgstr ""
 
-#: app/database/database_functions/starboards.py:39
-msgid "That channel is already an AutoStarChannel!"
+#: app/database/database_functions/guilds.py:32
+msgid "The cooldown time can be at most 10 minutes (600 seconds)."
 msgstr ""
 
-#: app/database/database_functions/starboards.py:131
+#: app/database/database_functions/starboards.py:214
 msgid "requiredStars cannot be less than or equal to requiredRemove."
 msgstr ""
 
-#: app/database/database_functions/starboards.py:137
+#: app/database/database_functions/starboards.py:220
 msgid "requiredStars cannot be less than 1."
 msgstr ""
 
-#: app/database/database_functions/starboards.py:141
+#: app/database/database_functions/starboards.py:224
 msgid "requiredStars cannot be greater than 500."
 msgstr ""
 
-#: app/database/database_functions/starboards.py:145
+#: app/database/database_functions/starboards.py:228
 msgid "requiredRemove cannot be less than -1."
 msgstr ""
 
-#: app/database/database_functions/starboards.py:149
+#: app/database/database_functions/starboards.py:232
 msgid "requiredRemove cannot be greater than 495."
 msgstr ""
 
-#: app/database/database_functions/starboards.py:201
-#: app/database/database_functions/starboards.py:217
-#: app/cogs/starboard/starboard_commands.py:582
-#, python-brace-format
-msgid "{0} is already a starEmoji on {1}."
+#: app/cogs/starboard/starboard_funcs.py:43
+msgid "Creating webhook for starboard messages."
 msgstr ""
 
-#: app/cogs/global_checks.py:21
-#, python-brace-format
-msgid "The command {0} has been disabled by the moderators of this server."
-msgstr ""
-
-#: app/cogs/starboard/starboard_funcs.py:196
-#: app/cogs/starboard/starboard_funcs.py:206
+#: app/cogs/starboard/starboard_funcs.py:210
+#: app/cogs/starboard/starboard_funcs.py:220
 msgid "*Message was deleted*"
 msgstr ""
 
-#: app/cogs/starboard/starboard_funcs.py:209
+#: app/cogs/starboard/starboard_funcs.py:223
 msgid "*File Only*"
 msgstr ""
 
-#: app/cogs/starboard/starboard_funcs.py:218
+#: app/cogs/starboard/starboard_funcs.py:232
 #, python-brace-format
 msgid "**[Replying to {0}]({1})**\n"
 msgstr ""
 
-#: app/cogs/starboard/starboard_funcs.py:223
+#: app/cogs/starboard/starboard_funcs.py:237
 #, python-brace-format
 msgid ""
 "**[Replying to Unknown (deleted)](https://discord.com/channels/{0.guild_id}/"
 "{0.channel_id}/{0.message_id})**\n"
 msgstr ""
 
-#: app/cogs/starboard/starboard_funcs.py:232
+#: app/cogs/starboard/starboard_funcs.py:246
 #, python-brace-format
 msgid "**[Jump to Message]({0})**"
 msgstr ""
 
-#: app/cogs/starboard/starboard_funcs.py:360
+#: app/cogs/starboard/starboard_funcs.py:393
 msgid "Trashed Message"
 msgstr ""
 
-#: app/cogs/starboard/starboard_funcs.py:362
+#: app/cogs/starboard/starboard_funcs.py:395
 #, python-brace-format
 msgid ""
 "This message was trashed by a moderator. To untrash it, run ```\n"
@@ -218,7 +320,7 @@ msgid ""
 "{2}```"
 msgstr ""
 
-#: app/cogs/starboard/starboard_funcs.py:388
+#: app/cogs/starboard/starboard_funcs.py:425
 #, python-brace-format
 msgid ""
 "I tried to match `{0}` to [a message]({1}), but it took too long. Try "
@@ -226,14 +328,14 @@ msgid ""
 "the support server."
 msgstr ""
 
-#: app/cogs/starboard/starboard_funcs.py:513
+#: app/cogs/starboard/starboard_funcs.py:611
 #, python-brace-format
 msgid ""
 "I tried to send a starboard message to {0}, but I'm missing the proper "
 "permissions. Please make sure I have the `Send Messages` permission."
 msgstr ""
 
-#: app/cogs/starboard/starboard_funcs.py:540
+#: app/cogs/starboard/starboard_funcs.py:640
 #, python-brace-format
 msgid ""
 "I tried to autoreact to a message on the starboard, but I'm missing the "
@@ -241,276 +343,277 @@ msgid ""
 "AutoReact setting to False with `starboards cs #{0} --autoReact False`."
 msgstr ""
 
-#: app/cogs/starboard/starboard_commands.py:37
+#: app/cogs/starboard/starboard_commands.py:38
 #, python-brace-format
 msgid ""
 "You do not have any starboards. Add starboards with `{0}s add #channel`."
 msgstr ""
 
-#: app/cogs/starboard/starboard_commands.py:45
+#: app/cogs/starboard/starboard_commands.py:46
 #, python-brace-format
 msgid "Starboards for **{0}**:"
 msgstr ""
 
-#: app/cogs/starboard/starboard_commands.py:47
+#: app/cogs/starboard/starboard_commands.py:48
 #, python-brace-format
 msgid ""
 "This lists the starboards and their most important settings. To view all "
 "settings, run `{0}starboards #starboard`."
 msgstr ""
 
-#: app/cogs/starboard/starboard_commands.py:61
+#: app/cogs/starboard/starboard_commands.py:62
 #, python-brace-format
 msgid "Deleted Channel {0}"
 msgstr ""
 
-#: app/cogs/starboard/starboard_commands.py:106
-#, python-brace-format
-msgid "{0} is already a starboard."
+#: app/cogs/starboard/starboard_commands.py:146
+#: app/cogs/starboard/starboard_commands.py:186
+msgid ""
+"This feature only works if `useWebhook` is enabled. Would you like to also "
+"enable this setting?"
 msgstr ""
 
-#: app/cogs/starboard/starboard_commands.py:110
+#: app/cogs/starboard/starboard_commands.py:154
+#, python-brace-format
+msgid "Webhooks have been enabled for {0}."
+msgstr ""
+
+#: app/cogs/starboard/starboard_commands.py:163
+msgid "Avatar set!"
+msgstr ""
+
+#: app/cogs/starboard/starboard_commands.py:165
+msgid "Avatar reset to default."
+msgstr ""
+
+#: app/cogs/starboard/starboard_commands.py:218
 #, python-brace-format
 msgid "Created starboard {0}."
 msgstr ""
 
-#: app/cogs/starboard/starboard_commands.py:138
+#: app/cogs/starboard/starboard_commands.py:244
 msgid "Are you sure? All starboard messages will be lost."
 msgstr ""
 
-#: app/cogs/starboard/starboard_commands.py:143
+#: app/cogs/starboard/starboard_commands.py:249
 #, python-brace-format
 msgid "{0} is no longer a starboard."
 msgstr ""
 
-#: app/cogs/starboard/starboard_commands.py:146
-#: app/cogs/settings/settings_commands.py:458
-#: app/cogs/settings/settings_commands.py:490
-#: app/cogs/utility/utility_commands.py:211
-#: app/cogs/utility/utility_commands.py:287
+#: app/cogs/starboard/starboard_commands.py:252
+#: app/cogs/settings/settings_commands.py:476
+#: app/cogs/settings/settings_commands.py:509
+#: app/cogs/permroles/pr_commands.py:245
+#: app/cogs/utility/utility_commands.py:56
+#: app/cogs/utility/utility_commands.py:59
+#: app/cogs/utility/utility_commands.py:63
+#: app/cogs/utility/utility_commands.py:77
+#: app/cogs/utility/utility_commands.py:326
+#: app/cogs/utility/utility_commands.py:402
 msgid "Cancelled."
 msgstr ""
 
-#: app/cogs/starboard/starboard_commands.py:521
-#, python-brace-format
-msgid ""
-"Options:\n"
-"``` - {0}starEmojis add <starboard> <emoji>\n"
-" - {0}starEmojis remove <starboard> <emoji>\n"
-" - {0}starEmojis clear <starboard>\n"
-" - {0}starEmojis set <starboard> [emoji1, emoji2, ...]```"
-msgstr ""
-
-#: app/cogs/starboard/starboard_commands.py:625
-#, python-brace-format
-msgid "{0} is not a starEmoji on {1}."
-msgstr ""
-
-#: app/cogs/starboard/starboard_commands.py:665
-#: app/cogs/autostarchannels/asc_commands.py:240
+#: app/cogs/starboard/starboard_commands.py:783
+#: app/cogs/autostarchannels/asc_commands.py:225
 #, python-brace-format
 msgid "Are you sure you want to clear all emojis for {0}?"
 msgstr ""
 
-#: app/cogs/starboard/starboard_events.py:28
+#: app/cogs/starboard/starboard_events.py:29
 #, python-brace-format
 msgid "`{0}` was deleted, so I removed that starboard."
 msgstr ""
 
-#: app/cogs/starboard/starboard_events.py:48
+#: app/cogs/starboard/starboard_events.py:52
 msgid "Starboard message was deleted, so I autotrashed it."
 msgstr ""
 
-#: app/cogs/settings/settings_commands.py:15
-msgid "That is already a QuickAction!"
-msgstr ""
-
-#: app/cogs/settings/settings_commands.py:38
+#: app/cogs/settings/settings_commands.py:37
 #, python-brace-format
 msgid ""
 "Valid language codes:```\n"
 "{0}```"
 msgstr ""
 
-#: app/cogs/settings/settings_commands.py:48
+#: app/cogs/settings/settings_commands.py:47
 #, python-brace-format
 msgid "Set the language for this server to {0}."
 msgstr ""
 
-#: app/cogs/settings/settings_commands.py:66
+#: app/cogs/settings/settings_commands.py:64
 #, python-brace-format
 msgid "No disabled commands. Disable a command with `{0}disable <command>`."
 msgstr ""
 
-#: app/cogs/settings/settings_commands.py:75
+#: app/cogs/settings/settings_commands.py:73
 msgid "Disabled Commands:"
 msgstr ""
 
-#: app/cogs/settings/settings_commands.py:80
+#: app/cogs/settings/settings_commands.py:78
 #, python-brace-format
 msgid ""
 "Disable a command with `{0}disable <command>`.\n"
 "Enable a command with `{0}enable <command>`."
 msgstr ""
 
-#: app/cogs/settings/settings_commands.py:97
-msgid "That command is already disabled."
-msgstr ""
-
-#: app/cogs/settings/settings_commands.py:106
+#: app/cogs/settings/settings_commands.py:104
 #, python-brace-format
 msgid "Disabled `{0}`."
 msgstr ""
 
-#: app/cogs/settings/settings_commands.py:127
+#: app/cogs/settings/settings_commands.py:125
 #, python-brace-format
 msgid "Enabled `{0}`."
 msgstr ""
 
-#: app/cogs/settings/settings_commands.py:149
+#: app/cogs/settings/settings_commands.py:148
 #, python-brace-format
 msgid "Settings for {0}:"
 msgstr ""
 
-#: app/cogs/settings/settings_commands.py:188
+#: app/cogs/settings/settings_commands.py:213
 #, python-brace-format
 msgid "To modify these, run `{0}help qa`."
 msgstr ""
 
-#: app/cogs/settings/settings_commands.py:200
+#: app/cogs/settings/settings_commands.py:225
 msgid "Enabled quickActions."
 msgstr ""
 
-#: app/cogs/settings/settings_commands.py:213
+#: app/cogs/settings/settings_commands.py:238
 msgid "Disabled quickActions."
 msgstr ""
 
-#: app/cogs/settings/settings_commands.py:232
+#: app/cogs/settings/settings_commands.py:257
 msgid "Reset quickActions."
 msgstr ""
 
-#: app/cogs/settings/settings_commands.py:251
+#: app/cogs/settings/settings_commands.py:276
 #, python-brace-format
 msgid "Set the force quickAction to {0}."
 msgstr ""
 
-#: app/cogs/settings/settings_commands.py:271
+#: app/cogs/settings/settings_commands.py:296
 #, python-brace-format
 msgid "Set the unforce quickAction to {0}."
 msgstr ""
 
-#: app/cogs/settings/settings_commands.py:294
+#: app/cogs/settings/settings_commands.py:319
 #, python-brace-format
 msgid "Set the freeze/unfreeze quickAction to {0}."
 msgstr ""
 
-#: app/cogs/settings/settings_commands.py:316
+#: app/cogs/settings/settings_commands.py:341
 #, python-brace-format
 msgid "Set the trash/untrash quickAction to {0}."
 msgstr ""
 
-#: app/cogs/settings/settings_commands.py:337
+#: app/cogs/settings/settings_commands.py:362
 #, python-brace-format
 msgid "Set the recount quickAction to {0}."
 msgstr ""
 
-#: app/cogs/settings/settings_commands.py:354
+#: app/cogs/settings/settings_commands.py:379
 #, python-brace-format
 msgid "Set the save quickAction to {0}."
 msgstr ""
 
-#: app/cogs/settings/settings_commands.py:370
+#: app/cogs/settings/settings_commands.py:395
 #, python-brace-format
 msgid "Prefixes for {0}:"
 msgstr ""
 
-#: app/cogs/settings/settings_commands.py:402
+#: app/cogs/settings/settings_commands.py:419
 #, python-brace-format
 msgid "`{0}` is too long (max length is 8 characters)."
 msgstr ""
 
-#: app/cogs/settings/settings_commands.py:409
-#, python-brace-format
-msgid "`{0}` is already a prefix."
-msgstr ""
-
-#: app/cogs/settings/settings_commands.py:420
+#: app/cogs/settings/settings_commands.py:436
 #, python-brace-format
 msgid "Added `{0}` to the prefixes."
 msgstr ""
 
-#: app/cogs/settings/settings_commands.py:444
+#: app/cogs/settings/settings_commands.py:460
 #, python-brace-format
 msgid "I found {0} matches for `{1}`. Please be more specific."
 msgstr ""
 
-#: app/cogs/settings/settings_commands.py:450
+#: app/cogs/settings/settings_commands.py:467
 #, python-brace-format
 msgid "No matches found for `{0}`."
 msgstr ""
 
-#: app/cogs/settings/settings_commands.py:455
+#: app/cogs/settings/settings_commands.py:473
 #, python-brace-format
 msgid "Did you want to remove `{0}` from the prefixes?"
 msgstr ""
 
-#: app/cogs/settings/settings_commands.py:473
+#: app/cogs/settings/settings_commands.py:492
 #, python-brace-format
 msgid "Removed `{0}` from the prefixes."
 msgstr ""
 
-#: app/cogs/settings/settings_commands.py:488
+#: app/cogs/settings/settings_commands.py:507
 msgid "Are you sure you want to reset all prefixes?"
 msgstr ""
 
-#: app/cogs/settings/settings_commands.py:498
+#: app/cogs/settings/settings_commands.py:517
 msgid "Cleared all prefixes and added `sb!`."
 msgstr ""
 
-#: app/cogs/settings/settings_commands.py:530
+#: app/cogs/settings/settings_commands.py:551
 #, python-brace-format
 msgid "Set the LevelUpChannel to {0}."
 msgstr ""
 
-#: app/cogs/settings/settings_commands.py:533
+#: app/cogs/settings/settings_commands.py:554
 msgid "Unset the LevelUpChannel."
 msgstr ""
 
-#: app/cogs/settings/settings_commands.py:550
+#: app/cogs/settings/settings_commands.py:572
 msgid "I will now ping users when the level up."
 msgstr ""
 
-#: app/cogs/settings/settings_commands.py:552
+#: app/cogs/settings/settings_commands.py:574
 msgid "I will not ping users when the level up."
 msgstr ""
 
-#: app/cogs/settings/settings_commands.py:590
+#: app/cogs/settings/settings_commands.py:610
 #, python-brace-format
 msgid "Set the log channel to {0}."
 msgstr ""
 
-#: app/cogs/settings/settings_commands.py:595
+#: app/cogs/settings/settings_commands.py:616
 msgid ""
 "This channel has been set as a log channel. I'll send errors and important "
 "info here."
 msgstr ""
 
-#: app/cogs/settings/settings_commands.py:620
+#: app/cogs/settings/settings_commands.py:643
 #, python-brace-format
 msgid "Set allowCommands to **{0}**."
 msgstr ""
 
-#: app/cogs/fun/fun_commands.py:53
+#: app/cogs/fun/fun_commands.py:58
 #, python-brace-format
 msgid "Leaderboard for {0}:"
 msgstr ""
 
-#: app/cogs/fun/fun_commands.py:75
+#: app/cogs/fun/fun_commands.py:81
 #, python-brace-format
 msgid "**{0}** has no stats to show."
 msgstr ""
 
-#: app/cogs/fun/fun_commands.py:92
+#: app/cogs/fun/fun_commands.py:85
+msgid "That user has their profile set to private."
+msgstr ""
+
+#: app/cogs/fun/fun_commands.py:112
+#, python-brace-format
+msgid "Stats for {0}"
+msgstr ""
+
+#: app/cogs/fun/fun_commands.py:114
 #, python-brace-format
 msgid ""
 "Rank: **#{0}**\n"
@@ -520,57 +623,191 @@ msgid ""
 "Level: **{4}**"
 msgstr ""
 
-#: app/cogs/fun/fun_commands.py:186
+#: app/cogs/fun/fun_commands.py:123
+msgid "Global Stats"
+msgstr ""
+
+#: app/cogs/fun/fun_commands.py:125
+#, python-brace-format
+msgid ""
+"Total Stars Given: **{0}**\n"
+"Total Stars Received: **{1}**\n"
+"Total Votes: **{2}**"
+msgstr ""
+
+#: app/cogs/fun/fun_commands.py:223
 msgid "Nothing to show."
 msgstr ""
 
-#: app/cogs/fun/fun_commands.py:256
+#: app/cogs/fun/fun_commands.py:300
 msgid "No messages were found that matched those requirements."
 msgstr ""
 
-#: app/cogs/fun/fun_commands.py:270
+#: app/cogs/fun/fun_commands.py:314
 msgid "Something went wrong. Please try again."
 msgstr ""
 
-#: app/cogs/fun/fun_commands.py:311 app/cogs/quick_actions/qa_events.py:170
+#: app/cogs/fun/fun_commands.py:355 app/cogs/quick_actions/qa_events.py:173
 msgid "You cannot save a trashed message."
 msgstr ""
 
-#: app/cogs/fun/fun_commands.py:320
+#: app/cogs/fun/fun_commands.py:364
 msgid "That message was deleted, so you can't save it."
 msgstr ""
 
-#: app/cogs/fun/fun_commands.py:329
+#: app/cogs/fun/fun_commands.py:373
 msgid "I can't DM you, so you can't save that message."
 msgstr ""
 
-#: app/cogs/slash/slash_commands.py:34
+#: app/cogs/permroles/pr_commands.py:51
+msgid "Dummy Check"
+msgstr ""
+
+#: app/cogs/permroles/pr_commands.py:54
+#, python-brace-format
+msgid ""
+"Channel: {0}\n"
+"Starboard: {1}\n"
+"Roles: {2}"
+msgstr ""
+
+#: app/cogs/permroles/pr_commands.py:82
+msgid "You have no permgroups."
+msgstr ""
+
+#: app/cogs/permroles/pr_commands.py:85
+#, python-brace-format
+msgid "PermGroups for {0}"
+msgstr ""
+
+#: app/cogs/permroles/pr_commands.py:120
+#, python-brace-format
+msgid "Created PermGroup {0}"
+msgstr ""
+
+#: app/cogs/permroles/pr_commands.py:134
+#, python-brace-format
+msgid "Deleted PermGroup {0}"
+msgstr ""
+
+#: app/cogs/permroles/pr_commands.py:154
+#, python-brace-format
+msgid "Moved the PermGroup {0} from {1} to {2}."
+msgstr ""
+
+#: app/cogs/permroles/pr_commands.py:195
+#, python-brace-format
+msgid "Added {0} to the channels on PermGroup {1}."
+msgstr ""
+
+#: app/cogs/permroles/pr_commands.py:224
+#, python-brace-format
+msgid "Removed {0} from the channels on PermGroup {1}."
+msgstr ""
+
+#: app/cogs/permroles/pr_commands.py:241
+#, python-brace-format
+msgid "Are you sure you want to clear all channels for the PermGroup {0}?"
+msgstr ""
+
+#: app/cogs/permroles/pr_commands.py:250
+#, python-brace-format
+msgid "Cleared all channels for the PermGroup {0}."
+msgstr ""
+
+#: app/cogs/permroles/pr_commands.py:293
+#, python-brace-format
+msgid "Added {0} to the starboards on PermGroup {1}."
+msgstr ""
+
+#: app/cogs/permroles/pr_commands.py:321
+#, python-brace-format
+msgid "Removed {0} from the starboards on PermGroup {1}."
+msgstr ""
+
+#: app/cogs/permroles/pr_commands.py:338
+#, python-brace-format
+msgid "Are you sure you want to clear all starboards for the PermGroup {0}?"
+msgstr ""
+
+#: app/cogs/permroles/pr_commands.py:347
+#, python-brace-format
+msgid "Cleared all starboards for PermGroup {0}."
+msgstr ""
+
+#: app/cogs/permroles/pr_commands.py:370
+#, python-brace-format
+msgid "PermRoles for {0}"
+msgstr ""
+
+#: app/cogs/permroles/pr_commands.py:400
+#, python-brace-format
+msgid "{0} is now a PermRole on the PermGroup {1}."
+msgstr ""
+
+#: app/cogs/permroles/pr_commands.py:425
+#, python-brace-format
+msgid "{0} is no longer a PermRole on the PermGroup {1}."
+msgstr ""
+
+#: app/cogs/permroles/pr_commands.py:451
+#, python-brace-format
+msgid "Moved the PermRole {0} from {1} to {2}."
+msgstr ""
+
+#: app/cogs/slash/slash_commands.py:35
 #, python-brace-format
 msgid ""
 "Try running `/ping` to see if slash commands are working. If not, a server "
 "admin can use [this link]({slash_auth}) to give me the proper permissions."
 msgstr ""
 
-#: app/cogs/blacklist/bl_commands.py:36
+#: app/cogs/profile/profile_commands.py:27
+#, python-brace-format
+msgid ""
+"Valid Language Codes:\n"
+"{0}"
+msgstr ""
+
+#: app/cogs/profile/profile_commands.py:35
+#, python-brace-format
+msgid "Set your language to {0}."
+msgstr ""
+
+#: app/cogs/profile/profile_commands.py:47
+msgid "Your profile is now public."
+msgstr ""
+
+#: app/cogs/profile/profile_commands.py:49
+msgid "Your profile is no longer public."
+msgstr ""
+
+#: app/cogs/profile/profile_commands.py:65
+msgid "Settings"
+msgstr ""
+
+#: app/cogs/profile/profile_commands.py:66
+#, python-brace-format
+msgid ""
+"Language: {0}\n"
+"Public Profile: {1}"
+msgstr ""
+
+#: app/cogs/blacklist/bl_commands.py:37
 msgid " (All channels are blacklisted, since there are whitelisted channels)"
 msgstr ""
 
-#: app/cogs/blacklist/bl_commands.py:43
+#: app/cogs/blacklist/bl_commands.py:44
 #, python-brace-format
 msgid "Blacklist/Whitelist for {0}"
 msgstr ""
 
-#: app/cogs/blacklist/bl_commands.py:48
+#: app/cogs/blacklist/bl_commands.py:49
 msgid "Blacklisted Channels:"
 msgstr ""
 
-#: app/cogs/blacklist/bl_commands.py:49
+#: app/cogs/blacklist/bl_commands.py:50
 msgid "Whitelisted Channels:"
-msgstr ""
-
-#: app/cogs/blacklist/bl_commands.py:69
-#, python-brace-format
-msgid "{0} is already blacklisted on {1}."
 msgstr ""
 
 #: app/cogs/blacklist/bl_commands.py:76
@@ -578,29 +815,19 @@ msgstr ""
 msgid "Added {0} to the blacklist on {1}."
 msgstr ""
 
-#: app/cogs/blacklist/bl_commands.py:96
-#, python-brace-format
-msgid "{0} is not blacklisted on {1}."
-msgstr ""
-
-#: app/cogs/blacklist/bl_commands.py:103
+#: app/cogs/blacklist/bl_commands.py:100
 #, python-brace-format
 msgid "Removed {0} from the blacklist on {1}."
 msgstr ""
 
-#: app/cogs/blacklist/bl_commands.py:120
+#: app/cogs/blacklist/bl_commands.py:118
 #, python-brace-format
 msgid "Are you sure you want to clear the blacklist for {0}?"
 msgstr ""
 
-#: app/cogs/blacklist/bl_commands.py:129
+#: app/cogs/blacklist/bl_commands.py:127
 #, python-brace-format
 msgid "Cleared the blacklist for {0}."
-msgstr ""
-
-#: app/cogs/blacklist/bl_commands.py:159
-#, python-brace-format
-msgid "{0} is already whitelisted on {1}."
 msgstr ""
 
 #: app/cogs/blacklist/bl_commands.py:167
@@ -608,27 +835,22 @@ msgstr ""
 msgid "Added {0} to the whitelist for {1}."
 msgstr ""
 
-#: app/cogs/blacklist/bl_commands.py:186
-#, python-brace-format
-msgid "{0} is not whitelisted on {1}."
-msgstr ""
-
-#: app/cogs/blacklist/bl_commands.py:194
+#: app/cogs/blacklist/bl_commands.py:191
 #, python-brace-format
 msgid "Removed {0} from the whitelist on {1}."
 msgstr ""
 
-#: app/cogs/blacklist/bl_commands.py:211
+#: app/cogs/blacklist/bl_commands.py:209
 #, python-brace-format
 msgid "Are you sure you want to clear the whitelist for {0}?"
 msgstr ""
 
-#: app/cogs/blacklist/bl_commands.py:220
+#: app/cogs/blacklist/bl_commands.py:218
 #, python-brace-format
 msgid "Cleared the whitelist for {0}."
 msgstr ""
 
-#: app/cogs/autostarchannels/asc_funcs.py:20
+#: app/cogs/autostarchannels/asc_funcs.py:21
 #, python-brace-format
 msgid ""
 "I tried to match `{0}` to [a message]({1.jump_url}), but it took too long. "
@@ -636,101 +858,125 @@ msgid ""
 "support server for help."
 msgstr ""
 
-#: app/cogs/autostarchannels/asc_funcs.py:39
+#: app/cogs/autostarchannels/asc_funcs.py:40
 #, python-brace-format
 msgid "Messages must be at least {0} characters"
 msgstr ""
 
-#: app/cogs/autostarchannels/asc_funcs.py:44
+#: app/cogs/autostarchannels/asc_funcs.py:45
 #, python-brace-format
 msgid "Messages must match `{0}`"
 msgstr ""
 
-#: app/cogs/autostarchannels/asc_funcs.py:49
+#: app/cogs/autostarchannels/asc_funcs.py:50
 #, python-brace-format
 msgid "Messages must not match `{0}`"
 msgstr ""
 
-#: app/cogs/autostarchannels/asc_funcs.py:67
+#: app/cogs/autostarchannels/asc_funcs.py:69
 #, python-brace-format
 msgid ""
 "I tried to delete [a message]({0.jump_url}) that didn't meet the "
 "requirements of {0.channel.mention}, but I don't have the proper permissions."
 msgstr ""
 
-#: app/cogs/autostarchannels/asc_funcs.py:78
+#: app/cogs/autostarchannels/asc_funcs.py:81
 #, python-brace-format
 msgid "Your message in {0} was deleted, because {1}. Here is your message:"
 msgstr ""
 
-#: app/cogs/autostarchannels/asc_events.py:31
+#: app/cogs/autostarchannels/asc_events.py:33
 #, python-brace-format
 msgid "`{0}` was deleted so I removed that AutoStarChannel."
 msgstr ""
 
-#: app/cogs/autostarchannels/asc_commands.py:35
+#: app/cogs/autostarchannels/asc_commands.py:37
 #, python-brace-format
 msgid ""
 "You do not have any AutoStarChannels. use `{0}asc add <channel>` to create "
 "one."
 msgstr ""
 
-#: app/cogs/autostarchannels/asc_commands.py:44
+#: app/cogs/autostarchannels/asc_commands.py:46
 #, python-brace-format
 msgid ""
 "This lists all AutoStarChannels and their most important settings. Use `{0}"
 "asc <aschannel>` to view all settings."
 msgstr ""
 
-#: app/cogs/autostarchannels/asc_commands.py:92
+#: app/cogs/autostarchannels/asc_commands.py:94
 #, python-brace-format
 msgid "Created AutoStarChannel {0}."
 msgstr ""
 
-#: app/cogs/autostarchannels/asc_commands.py:105
+#: app/cogs/autostarchannels/asc_commands.py:107
 #, python-brace-format
 msgid "Deleted AutoStarChannel {0}."
 msgstr ""
 
-#: app/cogs/autostarchannels/asc_commands.py:119
-#, python-brace-format
-msgid ""
-"Options:\n"
-"``` - {0}asc emojis add <aschannel> <emoji>\n"
-" - {0}asc emojis remove <aschannel> <emoji>\n"
-" - {0}asc emojis clear <aschannel>\n"
-" - {0}asc emojis set <aschannel> [emoji1, emoji2]```"
-msgstr ""
-
-#: app/cogs/base/base_events.py:176
+#: app/cogs/base/base_events.py:152
 #, python-brace-format
 msgid "My prefix is `{0}`."
 msgstr ""
 
-#: app/cogs/base/base_events.py:203
+#: app/cogs/base/base_events.py:182
 #, python-brace-format
 msgid ""
 "I don't have permission to send messages in {0}, so I can't respond to your "
 "command."
 msgstr ""
 
-#: app/cogs/base/base_events.py:211
+#: app/cogs/base/base_events.py:188
+msgid "Something's Not Right"
+msgstr ""
+
+#: app/cogs/base/base_events.py:190
 msgid ""
 "Something went wrong while running this command. If the problem persists, "
 "please report this in the support server."
 msgstr ""
 
-#: app/cogs/base/base_events.py:263
+#: app/cogs/base/base_events.py:242
 #, python-brace-format
 msgid "{0} Leveled up!"
 msgstr ""
 
-#: app/cogs/base/base_events.py:264
+#: app/cogs/base/base_events.py:243
 #, python-brace-format
 msgid "They are now level **{0}**!"
 msgstr ""
 
-#: app/cogs/base/base_commands.py:44
+#: app/cogs/base/base_commands.py:19
+msgid ""
+"A Starboard is a bot that allows users of a server to \"vote\" to \"pin\" a "
+"message. The main idea is this:\n"
+" - You set a channel as the starboard, typically called `#starboard`\n"
+" - You set an emoji for voting to pin messages, usually :star:\n"
+" - You set a limit (called requiredStars on this bot) that tells Starboard "
+"how many reactions (of the emoji you set) a message needs before it is sent "
+"to the starboard.\n"
+"\n"
+"Once a message reaches the requiredStars limit in  reactions, Starboard will "
+"essentially copy the message and repost it in your starboard."
+msgstr ""
+
+#: app/cogs/base/base_commands.py:39
+msgid "Starboard Credits"
+msgstr ""
+
+#: app/cogs/base/base_commands.py:43
+msgid "Owner(s)"
+msgstr ""
+
+#: app/cogs/base/base_commands.py:52
+msgid "Developer(s)"
+msgstr ""
+
+#: app/cogs/base/base_commands.py:61
+msgid "Translator(s)"
+msgstr ""
+
+#: app/cogs/base/base_commands.py:87
 #, python-brace-format
 msgid ""
 "**[Starboard Documentation]({0.DOCS})**\n"
@@ -743,15 +989,15 @@ msgid ""
 "If you need any help, you can join [the support server]({0.SUPPORT_INVITE})"
 msgstr ""
 
-#: app/cogs/base/base_commands.py:54
+#: app/cogs/base/base_commands.py:97
 msgid "What is a Starboard?"
 msgstr ""
 
-#: app/cogs/base/base_commands.py:70
+#: app/cogs/base/base_commands.py:113
 msgid "Bot Stats"
 msgstr ""
 
-#: app/cogs/base/base_commands.py:72
+#: app/cogs/base/base_commands.py:115
 #, python-brace-format
 msgid ""
 "guilds: **{0}**\n"
@@ -760,30 +1006,38 @@ msgid ""
 "shards: **{3}**"
 msgstr ""
 
-#: app/cogs/base/base_commands.py:98
+#: app/cogs/base/base_commands.py:154
 msgid "Pong!"
 msgstr ""
 
-#: app/cogs/base/base_commands.py:100
+#: app/cogs/base/base_commands.py:157
+#, python-brace-format
+msgid ""
+"Send: {0}ms\n"
+"Edit: {1}ms\n"
+"Delete: {2}ms"
+msgstr ""
+
+#: app/cogs/base/base_commands.py:161
 #, python-brace-format
 msgid "Cluster **{0}**"
 msgstr ""
 
-#: app/cogs/base/base_commands.py:101 app/cogs/base/base_commands.py:106
+#: app/cogs/base/base_commands.py:162 app/cogs/base/base_commands.py:167
 #, python-brace-format
 msgid "{0} ms"
 msgstr ""
 
-#: app/cogs/base/base_commands.py:105
+#: app/cogs/base/base_commands.py:166
 #, python-brace-format
 msgid "Shard **{0}**"
 msgstr ""
 
-#: app/cogs/base/base_commands.py:121
+#: app/cogs/base/base_commands.py:182
 msgid "Important Links"
 msgstr ""
 
-#: app/cogs/base/base_commands.py:124
+#: app/cogs/base/base_commands.py:185
 #, python-brace-format
 msgid ""
 "**[Documentation]({0.DOCS})**\n"
@@ -791,180 +1045,219 @@ msgid ""
 "**[Invite Starboard]({0.BOT_INVITE})**\n"
 msgstr ""
 
-#: app/cogs/base/base_commands.py:130
+#: app/cogs/base/base_commands.py:191
 msgid "Support Starboard"
 msgstr ""
 
-#: app/cogs/base/base_commands.py:134
+#: app/cogs/base/base_commands.py:195
 #, python-brace-format
 msgid ""
 "\n"
 "[Become a Patron]({0.PATREON_LINK})**"
 msgstr ""
 
-#: app/cogs/base/base_commands.py:140 app/cogs/base/base_commands.py:189
+#: app/cogs/base/base_commands.py:201 app/cogs/base/base_commands.py:250
 msgid "Vote Links"
 msgstr ""
 
-#: app/cogs/base/base_commands.py:145 app/cogs/base/base_commands.py:194
+#: app/cogs/base/base_commands.py:206 app/cogs/base/base_commands.py:255
 msgid "Review Links"
 msgstr ""
 
-#: app/cogs/base/base_commands.py:167
+#: app/cogs/base/base_commands.py:228
 #, python-brace-format
 msgid "{0} is a bot. How many times do you think they've voted?"
 msgstr ""
 
-#: app/cogs/base/base_commands.py:179
+#: app/cogs/base/base_commands.py:240
 msgid "Vote for Starboard"
 msgstr ""
 
-#: app/cogs/base/base_commands.py:181
+#: app/cogs/base/base_commands.py:242
 #, python-brace-format
 msgid "You have voted **{0}** time(s)."
 msgstr ""
 
-#: app/cogs/base/base_commands.py:183
+#: app/cogs/base/base_commands.py:244
 #, python-brace-format
 msgid "**{0}** has voted **{1}** time(s)."
 msgstr ""
 
-#: app/cogs/utility/utility_commands.py:27
+#: app/cogs/utility/utility_commands.py:62
+msgid "Are you certain?"
+msgstr ""
+
+#: app/cogs/utility/utility_commands.py:67
+msgid "Starboard has been reset for this server."
+msgstr ""
+
+#: app/cogs/utility/utility_commands.py:76
+msgid "Reset the leaderboard?"
+msgstr ""
+
+#: app/cogs/utility/utility_commands.py:86
+msgid "Reset the leaderboard."
+msgstr ""
+
+#: app/cogs/utility/utility_commands.py:96
+msgid "XP must be greater than 0."
+msgstr ""
+
+#: app/cogs/utility/utility_commands.py:98
+msgid "XP must be less than 10,000."
+msgstr ""
+
+#: app/cogs/utility/utility_commands.py:103
+msgid "That user does not exist in the database for this guild."
+msgstr ""
+
+#: app/cogs/utility/utility_commands.py:121
+#, python-brace-format
+msgid "Changed {0}'s XP to {1} and Level to {2} (was {3} XP and Level {4})."
+msgstr ""
+
+#: app/cogs/utility/utility_commands.py:140
 msgid "Must recount at least 1 message."
 msgstr ""
 
-#: app/cogs/utility/utility_commands.py:30
+#: app/cogs/utility/utility_commands.py:143
 msgid "Can only recount up to 1,000 messages."
 msgstr ""
 
-#: app/cogs/utility/utility_commands.py:105
+#: app/cogs/utility/utility_commands.py:198
+msgid "Nothing to remove"
+msgstr ""
+
+#: app/cogs/utility/utility_commands.py:200
+msgid "Database Cleaning"
+msgstr ""
+
+#: app/cogs/utility/utility_commands.py:224
 #, python-brace-format
 msgid "{0} errors, {1} warnings, {2} notes, and {3} suggestions."
 msgstr ""
 
-#: app/cogs/utility/utility_commands.py:114
+#: app/cogs/utility/utility_commands.py:233
 msgid ""
 "\n"
 "\n"
 "**Errors:**"
 msgstr ""
 
-#: app/cogs/utility/utility_commands.py:118
+#: app/cogs/utility/utility_commands.py:237
 msgid ""
 "\n"
 "\n"
 "**Warnings:**"
 msgstr ""
 
-#: app/cogs/utility/utility_commands.py:122
+#: app/cogs/utility/utility_commands.py:241
 msgid ""
 "\n"
 "\n"
 "**Notes:**"
 msgstr ""
 
-#: app/cogs/utility/utility_commands.py:126
+#: app/cogs/utility/utility_commands.py:245
 msgid ""
 "\n"
 "\n"
 "**Suggestions:**"
 msgstr ""
 
-#: app/cogs/utility/utility_commands.py:132
+#: app/cogs/utility/utility_commands.py:251
 msgid "Debugging Results"
 msgstr ""
 
-#: app/cogs/utility/utility_commands.py:152
-#: app/cogs/utility/utility_commands.py:170
-#: app/cogs/utility/utility_commands.py:272
-#: app/cogs/utility/utility_commands.py:320
-#: app/cogs/utility/utility_commands.py:348
-#: app/cogs/utility/utility_commands.py:370
-#: app/cogs/utility/utility_commands.py:524
-msgid "That message does not exist in the database."
-msgstr ""
-
-#: app/cogs/utility/utility_commands.py:175
+#: app/cogs/utility/utility_commands.py:290
 msgid "Message unfrozen."
 msgstr ""
 
-#: app/cogs/utility/utility_commands.py:209
+#: app/cogs/utility/utility_commands.py:324
 msgid "Force this message to all starboards?"
 msgstr ""
 
-#: app/cogs/utility/utility_commands.py:237
+#: app/cogs/utility/utility_commands.py:352
 msgid "Message forced to all starboards."
 msgstr ""
 
-#: app/cogs/utility/utility_commands.py:241
+#: app/cogs/utility/utility_commands.py:356
 #, python-brace-format
 msgid "Message forced to {0}."
 msgstr ""
 
-#: app/cogs/utility/utility_commands.py:276
+#: app/cogs/utility/utility_commands.py:391
 #, python-brace-format
 msgid ""
 "The message you passed appears to be a starboard message. Would you like to "
 "unforce this message from {0} instead?"
 msgstr ""
 
-#: app/cogs/utility/utility_commands.py:285
+#: app/cogs/utility/utility_commands.py:400
 msgid "Unforce this message from all starboards?"
 msgstr ""
 
-#: app/cogs/utility/utility_commands.py:297
+#: app/cogs/utility/utility_commands.py:412
 msgid "Message unforced from all starboards."
 msgstr ""
 
-#: app/cogs/utility/utility_commands.py:301
+#: app/cogs/utility/utility_commands.py:416
 #, python-brace-format
 msgid "Message unforced from {0}."
 msgstr ""
 
-#: app/cogs/utility/utility_commands.py:325
+#: app/cogs/utility/utility_commands.py:439
 #, python-brace-format
 msgid "Set the reason to {0}."
 msgstr ""
 
-#: app/cogs/utility/utility_commands.py:357
+#: app/cogs/utility/utility_commands.py:469
 msgid "Message trashed."
 msgstr ""
 
-#: app/cogs/utility/utility_commands.py:378
+#: app/cogs/utility/utility_commands.py:488
 msgid "Message untrashed."
 msgstr ""
 
-#: app/cogs/utility/utility_commands.py:398
+#: app/cogs/utility/utility_commands.py:509
 msgid "You have no trashed messages."
 msgstr ""
 
-#: app/cogs/utility/utility_commands.py:409
+#: app/cogs/utility/utility_commands.py:520
 msgid "Trashed Messages"
 msgstr ""
 
-#: app/cogs/utility/utility_commands.py:450
+#: app/cogs/utility/utility_commands.py:544
+msgid "Are you sure you want to untrash all messages?"
+msgstr ""
+
+#: app/cogs/utility/utility_commands.py:553
+msgid "All messages have been untrashed."
+msgstr ""
+
+#: app/cogs/utility/utility_commands.py:588
 msgid "Can only purge up to 200 messages at once."
 msgstr ""
 
-#: app/cogs/utility/utility_commands.py:466
+#: app/cogs/utility/utility_commands.py:604
 #, python-brace-format
 msgid "Purged {0} Messages."
 msgstr ""
 
-#: app/cogs/utility/utility_commands.py:487
+#: app/cogs/utility/utility_commands.py:625
 msgid "Can only unpurge up to 200 messages at once."
 msgstr ""
 
-#: app/cogs/utility/utility_commands.py:503
+#: app/cogs/utility/utility_commands.py:641
 #, python-brace-format
 msgid "Unpurged {0} Messages."
 msgstr ""
 
-#: app/cogs/utility/utility_commands.py:530
+#: app/cogs/utility/utility_commands.py:666
 msgid "Message Info"
 msgstr ""
 
-#: app/cogs/utility/utility_commands.py:533
+#: app/cogs/utility/utility_commands.py:669
 #, python-brace-format
 msgid ""
 "[Jump to Message]({0})\n"
@@ -975,16 +1268,16 @@ msgid ""
 "Frozen: {1[frozen]}"
 msgstr ""
 
-#: app/cogs/utility/utility_commands.py:552
+#: app/cogs/utility/utility_commands.py:688
 msgid "Not On Starboard"
 msgstr ""
 
-#: app/cogs/utility/utility_commands.py:561
+#: app/cogs/utility/utility_commands.py:697
 #, python-brace-format
 msgid "[Jump]({0})"
 msgstr ""
 
-#: app/cogs/utility/utility_commands.py:568
+#: app/cogs/utility/utility_commands.py:704
 #, python-brace-format
 msgid ""
 "Points: **{0}**/{1}\n"
@@ -1202,4 +1495,133 @@ msgstr ""
 
 #: app/cogs/utility/utility_funcs.py:51
 msgid "Purged"
+msgstr ""
+
+#: app/cogs/starboard/starboard_commands.py:518
+#, python-brace-format
+msgid ""
+"Options:\n"
+"``` - {0}starEmojis add <starboard> <emoji>\n"
+" - {0}starEmojis remove <starboard> <emoji>\n"
+" - {0}starEmojis clear <starboard>\n"
+" - {0}starEmojis set <starboard> [emoji1, emoji2, ...]```"
+msgstr ""
+
+#: app/cogs/autostarchannels/asc_commands.py:119
+#, python-brace-format
+msgid ""
+"Options:\n"
+"``` - {0}asc emojis add <aschannel> <emoji>\n"
+" - {0}asc emojis remove <aschannel> <emoji>\n"
+" - {0}asc emojis clear <aschannel>\n"
+" - {0}asc emojis set <aschannel> [emoji1, emoji2]```"
+msgstr ""
+
+#: app/cogs/global_checks.py:20
+#, python-brace-format
+msgid "The command {0} has been disabled by the moderators of this server."
+msgstr ""
+
+#: app/errors.py:21
+#, python-brace-format
+msgid ""
+"`{0}` is an emoji, but from another server. Please pass a default emoji or a "
+"custom emoji from this server."
+msgstr ""
+
+#: app/cogs/settings/settings_commands.py:16
+msgid "That is already a QuickAction!"
+msgstr ""
+
+#: app/converters.py:94
+#, python-brace-format
+msgid ""
+"It looks like `{0}` is a custom emoji, but from another server. We can only "
+"add custom emojis from this server."
+msgstr ""
+
+#: app/converters.py:101
+#, python-brace-format
+msgid "I could not interpret `{0}` as an emoji."
+msgstr ""
+
+#: app/converters.py:113
+msgid ""
+"I can't read the message history of this channel, so I don't know what "
+"message you want me to force."
+msgstr ""
+
+#: app/converters.py:123
+#, python-brace-format
+msgid ""
+"I couldn't find the message `{0}`. Please make sure that the message link/id "
+"is valid, and that it is in this server."
+msgstr ""
+
+#: app/converters.py:131
+#, python-brace-format
+msgid ""
+"I couldn't find the channel `{0}`. Please make sure the message link/id is "
+"valid, and that it is in this server."
+msgstr ""
+
+#: app/converters.py:138
+#, python-brace-format
+msgid "I can't read messages in the channel `{0}`."
+msgstr ""
+
+#: app/converters.py:170 app/cogs/starboard/starboard_commands.py:134
+#, python-brace-format
+msgid "{0} is not a starboard."
+msgstr ""
+
+#: app/converters.py:183
+#, python-brace-format
+msgid "{0} is not an AutoStar channel."
+msgstr ""
+
+#: app/converters.py:196
+#, python-brace-format
+msgid "No commands called `{0}` found."
+msgstr ""
+
+#: app/database/database_functions/aschannels.py:39
+msgid "That channel is already a starboard!"
+msgstr ""
+
+#: app/database/database_functions/aschannels.py:74
+#, python-brace-format
+msgid "No AutoStarChannel found with id {0}."
+msgstr ""
+
+#: app/database/database_functions/aschannels.py:125
+#: app/cogs/autostarchannels/asc_commands.py:177
+#, python-brace-format
+msgid "{0} is already an emoji on {1}."
+msgstr ""
+
+#: app/database/database_functions/aschannels.py:137
+#: app/cogs/autostarchannels/asc_commands.py:213
+#, python-brace-format
+msgid "{0} is not an emoji on {1}."
+msgstr ""
+
+#: app/database/database_functions/starboards.py:39
+msgid "That channel is already an AutoStarChannel!"
+msgstr ""
+
+#: app/database/database_functions/starboards.py:201
+#: app/database/database_functions/starboards.py:217
+#: app/cogs/starboard/starboard_commands.py:582
+#, python-brace-format
+msgid "{0} is already a starEmoji on {1}."
+msgstr ""
+
+#: app/cogs/starboard/starboard_commands.py:625
+#, python-brace-format
+msgid "{0} is not a starEmoji on {1}."
+msgstr ""
+
+#: app/cogs/settings/settings_commands.py:97
+msgid "That command is already disabled."
 msgstr ""

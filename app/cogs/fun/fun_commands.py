@@ -27,6 +27,7 @@ class Fun(commands.Cog):
     )
     @commands.guild_only()
     async def guild_leaderboard(self, ctx: commands.Context) -> None:
+        """Shows the top 200 users, ordered by their XP"""
         leaderboard = await fun_funcs.get_guild_leaderboard(
             self.bot, ctx.guild
         )
@@ -47,6 +48,10 @@ class Fun(commands.Cog):
 
         for _uid, u in leaderboard.items():
             p.add_line(build_string(u))
+
+        if len(p.pages) == 0:
+            await ctx.send("Nothing to show.")
+            return
 
         embeds = [
             discord.Embed(
@@ -69,10 +74,16 @@ class Fun(commands.Cog):
     async def user_stats(
         self, ctx: commands.Context, user: discord.Member = None
     ) -> None:
+        """Shows stats for a user. Defaults to yourself"""
         user: discord.Member = user or ctx.message.author
         sql_user = await self.bot.db.users.get(user.id)
         if not sql_user:
             await ctx.send(t_("**{0}** has no stats to show.").format(user))
+            return
+        if sql_user["public"] is False and user.id != ctx.message.author.id:
+            await ctx.send(
+                t_("That user has their profile set to private.").format(user)
+            )
             return
         sql_member = await self.bot.db.members.get(user.id, ctx.guild.id)
 
@@ -86,17 +97,39 @@ class Fun(commands.Cog):
         else:
             stars_given = stars_recv = xp = level = 0
 
-        embed = discord.Embed(
-            title=f"{user}",
-            description=t_(
-                "Rank: **#{0}**\n"
-                "Stars Given: **{1}**\n"
-                "Stars Received: **{2}**\n"
-                "XP: **{3}**\n"
-                "Level: **{4}**"
-            ).format(rank, stars_given, stars_recv, xp, level),
-            color=self.bot.theme_color,
-        ).set_thumbnail(url=user.avatar_url)
+        total_stars, total_recv = await self.bot.db.fetchrow(
+            """SELECT SUM(stars_given), SUM(stars_received) FROM members
+            WHERE user_id=$1""",
+            ctx.author.id,
+        )
+
+        embed = (
+            discord.Embed(
+                title=f"{user}",
+                color=self.bot.theme_color,
+            )
+            .add_field(
+                name=t_("Stats for {0}").format(ctx.guild),
+                value=t_(
+                    "Rank: **#{0}**\n"
+                    "Stars Given: **{1}**\n"
+                    "Stars Received: **{2}**\n"
+                    "XP: **{3}**\n"
+                    "Level: **{4}**"
+                ).format(rank, stars_given, stars_recv, xp, level),
+                inline=False,
+            )
+            .add_field(
+                name=t_("Global Stats"),
+                value=t_(
+                    "Total Stars Given: **{0}**\n"
+                    "Total Stars Received: **{1}**\n"
+                    "Total Votes: **{2}**"
+                ).format(total_stars, total_recv, sql_user["votes"]),
+                inline=False,
+            )
+            .set_thumbnail(url=user.avatar_url)
+        )
         await ctx.send(embed=embed)
 
     @flags.add_flag("--by", type=discord.User)
@@ -127,6 +160,15 @@ class Fun(commands.Cog):
         starboard_id = (
             options["starboard"].obj.id if options["starboard"] else None
         )
+        all_starboards = [
+            s["id"]
+            for s in await self.bot.db.fetch(
+                """SELECT * FROM starboards
+                WHERE guild_id=$1
+                AND explore=True""",
+                ctx.guild.id,
+            )
+        ]
         author_id = options["by"].id if options["by"] else None
         channel_id = options["in"].id if options["in"] else None
         maxpoints = options["maxstars"]
@@ -137,26 +179,21 @@ class Fun(commands.Cog):
 
         messages = await self.bot.db.fetch(
             """SELECT * FROM starboard_messages
-            WHERE ($1::numeric is NULL or starboard_id=$1::numeric)
+            WHERE starboard_id=any($1::numeric[])
+            AND ($2::numeric is NULL or starboard_id=$2::numeric)
             AND EXISTS(
                 SELECT * FROM messages
                 WHERE id=orig_id
-                AND guild_id=$4
-                AND ($2::numeric is NULL or author_id=$2::numeric)
-                AND ($3::numeric is NULL or channel_id=$3::numeric)
+                AND ($3::numeric is NULL or author_id=$3::numeric)
+                AND ($4::numeric is NULL or channel_id=$4::numeric)
                 AND trashed=False
-            )
-            AND EXISTS (
-                SELECT * FROM starboards
-                WHERE id=starboard_id
-                AND explore=True
             )
             AND ($5::smallint is NULL or points <= $5::smallint)
             ORDER BY points DESC""",
+            all_starboards,
             starboard_id,
             author_id,
             channel_id,
-            ctx.guild.id,
             maxpoints,
         )
         embeds: list[discord.Embed] = []
@@ -228,23 +265,30 @@ class Fun(commands.Cog):
         starboard_id = (
             options["starboard"].obj.id if options["starboard"] else None
         )
+        all_starboards = [
+            s["id"]
+            for s in await self.bot.db.fetch(
+                """SELECT * FROM starboards
+                WHERE guild_id=$1
+                AND explore=True""",
+                ctx.guild.id,
+            )
+        ]
+
         good_messages = await self.bot.db.fetch(
             """SELECT * FROM starboard_messages
-            WHERE ($1::numeric is NULL or starboard_id=$1::numeric)
-            AND ($2::smallint is NULL or points >= $2::smallint)
-            AND ($3::smallint is NULL or points <= $3::smallint)
+            WHERE starboard_id=any($1::numeric[])
+            AND ($2::numeric is NULL or starboard_id=$2::numeric)
+            AND ($3::smallint is NULL or points >= $3::smallint)
+            AND ($4::smallint is NULL or points <= $4::smallint)
             AND EXISTS (
                 SELECT * FROM messages
                 WHERE id=orig_id
                 AND trashed=False
-                AND ($4::numeric is NULL or author_id=$4::numeric)
-                AND ($5::numeric is NULL or channel_id=$5::numeric)
-            )
-            AND EXISTS (
-                SELECT * FROM starboards
-                WHERE id=starboard_id
-                AND explore=True
+                AND ($5::numeric is NULL or author_id=$5::numeric)
+                AND ($6::numeric is NULL or channel_id=$6::numeric)
             )""",
+            all_starboards,
             starboard_id,
             options["points"],
             options["maxstars"],
@@ -289,7 +333,7 @@ class Fun(commands.Cog):
     # @commands.guild_only()
     # async def starworthy(
     #    self, ctx: commands.Context,
-    #    message: converters.MessageLink
+    #    message: converters.GuildMessage
     # ) -> None:
     #    """Tells you how starworthy a message is."""
     #    r = random.Random(message.id)
@@ -299,7 +343,7 @@ class Fun(commands.Cog):
     @commands.command(name="save", brief="Saves a message to your DM's")
     @commands.guild_only()
     async def save(
-        self, ctx: commands.Context, message: converters.MessageLink
+        self, ctx: commands.Context, message: converters.GuildMessage
     ) -> None:
         """Saves a message to your DM's"""
         orig_sql_message = await starboard_funcs.orig_message(

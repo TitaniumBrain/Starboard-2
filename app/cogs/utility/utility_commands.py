@@ -1,8 +1,11 @@
+import asyncio
+
 import discord
 from discord.ext import commands, flags
 
 from app import converters, errors, menus, utils
 from app.classes.bot import Bot
+from app.cogs.leveling import leveling_funcs
 from app.cogs.starboard import starboard_funcs
 from app.i18n import t_
 
@@ -15,6 +18,113 @@ class Utility(commands.Cog):
     def __init__(self, bot: Bot) -> None:
         self.bot = bot
 
+    @commands.group(
+        name="reset",
+        brief="A utility for resetting aspects of the bot.",
+        invoke_without_command=True,
+    )
+    @commands.has_guild_permissions(administrator=True)
+    @commands.guild_only()
+    async def reset(self, ctx: commands.Context):
+        "A utility for resetting aspects of the bot."
+        await ctx.send_help(ctx.command)
+
+    @reset.command(name="all", brief="Resets the bot for your guild.")
+    @commands.has_guild_permissions(administrator=True)
+    @commands.guild_only()
+    async def reset_all(self, ctx: commands.Context):
+        """Resets Starboard on the entire guild. All settings,
+        starboards, autostarchannels, and leaderboard data will be
+        lost permanently."""
+        await ctx.send(
+            "You are about to reset all settings, starboards, "
+            "autostarchannels, and leaderboard data for this "
+            "server. Please type the name of this server to "
+            "continue, or anything else to cancel."
+        )
+
+        def check(m: discord.Message) -> bool:
+            if m.author.id != ctx.author.id:
+                return False
+            if m.channel.id != ctx.channel.id:
+                return False
+            return True
+
+        try:
+            m = await self.bot.wait_for("message", check=check)
+        except asyncio.TimeoutError:
+            await ctx.send(t_("Cancelled."))
+            return
+        if m.content.casefold() != ctx.guild.name.casefold():
+            await ctx.send(t_("Cancelled."))
+            return
+
+        if not await menus.Confirm(t_("Are you certain?")).start(ctx):
+            await ctx.send(t_("Cancelled."))
+            return
+
+        await self.bot.db.guilds.delete(ctx.guild.id)
+        await ctx.send(t_("Starboard has been reset for this server."))
+
+    @reset.command(
+        name="leaderboard", aliases=["lb"], brief="Resets the leaderboard."
+    )
+    @commands.has_guild_permissions(manage_guild=True)
+    @commands.guild_only()
+    async def reset_lb(self, ctx: commands.Context):
+        """Resets only the leaderboard for a guild"""
+        if not await menus.Confirm(t_("Reset the leaderboard?")).start(ctx):
+            await ctx.send(t_("Cancelled."))
+            return
+        await self.bot.db.execute(
+            """UPDATE members
+            SET xp=0,
+            level=0
+            WHERE guild_id=$1""",
+            ctx.guild.id,
+        )
+        await ctx.send(t_("Reset the leaderboard."))
+
+    @commands.command(name="setxp", brief="Sets the XP for a user.")
+    @commands.has_guild_permissions(manage_guild=True)
+    async def set_user_xp(
+        self, ctx: commands.Context, user: discord.User, xp: converters.myint
+    ):
+        """Sets the XP for a user. The level will be calculated
+        automatically"""
+        if xp < 0:
+            raise commands.BadArgument(t_("XP must be greater than 0."))
+        if xp > 9999:
+            raise commands.BadArgument(t_("XP must be less than 10,000."))
+
+        sql_member = await self.bot.db.members.get(user.id, ctx.guild.id)
+        if not sql_member:
+            raise commands.BadArgument(
+                t_("That user does not exist in the database for this guild.")
+            )
+
+        new_level = leveling_funcs.current_level(xp)
+        await self.bot.db.execute(
+            """UPDATE members
+            SET xp=$1,
+            level=$2
+            WHERE user_id=$3
+            AND guild_id=$4""",
+            xp,
+            new_level,
+            user.id,
+            ctx.guild.id,
+        )
+
+        await ctx.send(
+            t_(
+                "Changed {0}'s XP to {1} and Level to {2} "
+                "(was {3} XP and Level {4})."
+            ).format(
+                user.name, xp, new_level, sql_member["xp"], sql_member["level"]
+            )
+        )
+
     @commands.command(
         name="scan", brief="Recounts the reactions on lots of messages at once"
     )
@@ -23,6 +133,9 @@ class Utility(commands.Cog):
     @commands.bot_has_permissions(read_message_history=True)
     @commands.guild_only()
     async def scan_recount(self, ctx: commands.Context, limit: int) -> None:
+        """Helpful if several messages were starred during downtime. Running
+        this will scan up to the last 1,000 messages and recount the reactions
+        on them."""
         if limit < 1:
             await ctx.send(t_("Must recount at least 1 message."))
             return
@@ -41,8 +154,9 @@ class Utility(commands.Cog):
     @commands.cooldown(3, 6, type=commands.BucketType.guild)
     @commands.has_guild_permissions(manage_messages=True)
     async def recount(
-        self, ctx: commands.Context, message: converters.MessageLink
+        self, ctx: commands.Context, message: converters.GuildMessage
     ) -> None:
+        """Recounts the reactions on a specific message"""
         orig_sql_message = await starboard_funcs.orig_message(
             self.bot, message.id
         )
@@ -73,14 +187,17 @@ class Utility(commands.Cog):
     @commands.bot_has_permissions(embed_links=True)
     @commands.guild_only()
     async def clean(self, ctx: commands.Context) -> None:
+        """Removes thing such as #deleted-channel and @deleted-role
+        from the database. Note that this can actually change
+        the functionality of things like permroles and blacklists."""
         result = await cleaner.clean_guild(ctx.guild, self.bot)
         string = "\n".join(
             f"{name}: {count}" for name, count in result if count != 0
         )
         if string == "":
-            string = "Nothing to remove"
+            string = t_("Nothing to remove")
         embed = discord.Embed(
-            title="Database Cleaning",
+            title=t_("Database Cleaning"),
             description=string,
             color=self.bot.theme_color,
         )
@@ -96,6 +213,8 @@ class Utility(commands.Cog):
     )
     @commands.guild_only()
     async def debug(self, ctx: commands.Context) -> None:
+        """Tries to determine any problems with the current setup
+        of Starboard."""
         result = await debugger.debug_guild(self.bot, ctx.guild)
 
         p = commands.Paginator(prefix="", suffix="")
@@ -140,7 +259,7 @@ class Utility(commands.Cog):
     @commands.command(name="freeze", brief="Freeze a message")
     @commands.has_guild_permissions(manage_messages=True)
     async def freeze_message(
-        self, ctx: commands.Context, message_link: converters.MessageLink
+        self, ctx: commands.Context, message_link: converters.GuildMessage
     ) -> None:
         """Freezes a message, so the point count will
         not update."""
@@ -148,9 +267,7 @@ class Utility(commands.Cog):
             self.bot, message_link.id
         )
         if not orig_message:
-            raise errors.DoesNotExist(
-                t_("That message does not exist in the database.")
-            )
+            raise errors.MessageNotInDatabse()
         await utility_funcs.handle_freezing(
             self.bot, orig_message["id"], orig_message["guild_id"], True
         )
@@ -159,16 +276,14 @@ class Utility(commands.Cog):
     @commands.command(name="unfreeze", brief="Unfreezes a message")
     @commands.has_guild_permissions(manage_messages=True)
     async def unfreeze_message(
-        self, ctx: commands.Context, message_link: converters.MessageLink
+        self, ctx: commands.Context, message_link: converters.GuildMessage
     ) -> None:
         """Unfreezes a message"""
         orig_message = await starboard_funcs.orig_message(
             self.bot, message_link.id
         )
         if not orig_message:
-            raise errors.DoesNotExist(
-                t_("That message does not exist in the database.")
-            )
+            raise errors.MessageNotInDatabse()
         await utility_funcs.handle_freezing(
             self.bot, orig_message["id"], orig_message["guild_id"], False
         )
@@ -185,7 +300,7 @@ class Utility(commands.Cog):
     async def force_message(
         self,
         ctx: commands.Context,
-        message_link: converters.MessageLink,
+        message_link: converters.GuildMessage,
         *starboards: converters.Starboard,
     ) -> None:
         """Forces a message to all or some starboards.
@@ -252,7 +367,7 @@ class Utility(commands.Cog):
     async def unforce_message(
         self,
         ctx: commands.Context,
-        message_link: converters.MessageLink,
+        message_link: converters.GuildMessage,
         *starboards: converters.Starboard,
     ) -> None:
         """Unforces a message
@@ -269,7 +384,7 @@ class Utility(commands.Cog):
             self.bot, message_link.id
         )
         if not orig_sql_message:
-            await ctx.send(t_("That message does not exist in the database."))
+            raise errors.MessageNotInDatabse()
         if orig_sql_message["id"] != message_link.id and len(starboards) == 0:
             if await menus.Confirm(
                 t_(
@@ -310,15 +425,14 @@ class Utility(commands.Cog):
     async def set_trash_reason(
         self,
         ctx: commands.Context,
-        message: converters.MessageLink,
+        message: converters.GuildMessage,
         *,
         reason: str = None,
     ) -> None:
+        """Sets the reason for trashing a message."""
         orig_message = await starboard_funcs.orig_message(self.bot, message.id)
         if not orig_message:
-            raise errors.DoesNotExist(
-                t_("That message does not exist in the database.")
-            )
+            raise errors.MessageNotInDatabse()
         await utility_funcs.set_trash_reason(
             self.bot, orig_message["id"], ctx.guild.id, reason or "None given"
         )
@@ -331,7 +445,7 @@ class Utility(commands.Cog):
     async def trash_message(
         self,
         ctx: commands.Context,
-        message_link: converters.MessageLink,
+        message_link: converters.GuildMessage,
         *,
         reason=None,
     ) -> None:
@@ -344,9 +458,7 @@ class Utility(commands.Cog):
             self.bot, message_link.id
         )
         if not orig_sql_message:
-            raise errors.DoesNotExist(
-                t_("That message does not exist in the database.")
-            )
+            raise errors.MessageNotInDatabse()
         await utility_funcs.handle_trashing(
             self.bot,
             orig_sql_message["id"],
@@ -359,16 +471,14 @@ class Utility(commands.Cog):
     @commands.command(name="untrash", brief="Untrashes a message")
     @commands.has_guild_permissions(manage_messages=True)
     async def untrash_message(
-        self, ctx: commands.Context, message_link: converters.MessageLink
+        self, ctx: commands.Context, message_link: discord.PartialMessage
     ) -> None:
         """Untrashes a message for all starboards"""
         orig_sql_message = await starboard_funcs.orig_message(
             self.bot, message_link.id
         )
         if not orig_sql_message:
-            raise errors.DoesNotExist(
-                t_("That message does not exist in the database.")
-            )
+            raise errors.MessageNotInDatabse()
         await utility_funcs.handle_trashing(
             self.bot,
             orig_sql_message["id"],
@@ -377,17 +487,18 @@ class Utility(commands.Cog):
         )
         await ctx.send(t_("Message untrashed."))
 
-    @commands.command(
+    @commands.group(
         name="trashcan",
         aliases=["trashed"],
         brief="Shows a list of trashed messages",
+        invoke_without_command=True,
     )
     @commands.has_guild_permissions(manage_messages=True)
     @commands.bot_has_permissions(
         embed_links=True, add_reactions=True, read_message_history=True
     )
     @commands.guild_only()
-    async def show_trashcan(self, ctx: commands.Context) -> None:
+    async def trashcan(self, ctx: commands.Context) -> None:
         """Shows all messages that have been trashed."""
         trashed_messages = await self.bot.db.fetch(
             """SELECT * FROM messages
@@ -413,6 +524,33 @@ class Utility(commands.Cog):
             for page in p.pages
         ]
         await menus.Paginator(embeds=embeds).start(ctx)
+
+    @trashcan.command(
+        name="empty",
+        aliases=["clear"],
+        brief="Empties the trashcan",
+    )
+    @commands.has_guild_permissions(manage_messages=True)
+    @commands.bot_has_permissions(
+        embed_links=True, add_reactions=True, read_message_history=True
+    )
+    @commands.guild_only()
+    async def empty_trashcan(self, ctx: commands.Context):
+        """Empties the trashcan. Note that this will not
+        Automatically update the messages that were trashed.
+        If you need this, please untrash each message
+        individually."""
+        if not await menus.Confirm(
+            t_("Are you sure you want to untrash all messages?")
+        ).start(ctx):
+            await ctx.send("Cancelled.")
+        await self.bot.db.execute(
+            """UPDATE messages
+            SET trashed=False
+            WHERE guild_id=$1 and trashed=True""",
+            ctx.guild.id,
+        )
+        await ctx.send(t_("All messages have been untrashed."))
 
     @flags.add_flag("--by", type=discord.User)
     @flags.add_flag("--notby", type=discord.User)
@@ -446,11 +584,11 @@ class Utility(commands.Cog):
             trash 50 --notby @Cool Person
             trash 50"""
         if limit > 200:
-            raise discord.InvalidArgument(
+            raise commands.BadArgument(
                 t_("Can only purge up to 200 messages at once.")
             )
         elif limit < 1:
-            raise discord.InvalidArgument("Must purge at least 1 message.")
+            raise commands.BadArgument("Must purge at least 1 message.")
 
         total, purged = await utility_funcs.handle_purging(
             self.bot,
@@ -483,11 +621,11 @@ class Utility(commands.Cog):
     ) -> None:
         """Same usage as purge, but untrashes instead."""
         if limit > 200:
-            raise discord.InvalidArgument(
+            raise commands.BadArgument(
                 t_("Can only unpurge up to 200 messages at once.")
             )
         elif limit < 1:
-            raise discord.InvalidArgument("Must unpurge at least 1 message.")
+            raise commands.BadArgument("Must unpurge at least 1 message.")
 
         total, purged = await utility_funcs.handle_purging(
             self.bot,
@@ -515,14 +653,12 @@ class Utility(commands.Cog):
     @commands.bot_has_permissions(embed_links=True)
     @commands.guild_only()
     async def message_info(
-        self, ctx: commands.Context, message: converters.MessageLink
+        self, ctx: commands.Context, message: converters.GuildMessage
     ) -> None:
         """Shows useful info on a message."""
         orig = await starboard_funcs.orig_message(self.bot, message.id)
         if not orig:
-            raise errors.DoesNotExist(
-                t_("That message does not exist in the database.")
-            )
+            raise errors.MessageNotInDatabse()
         jump = utils.jump_link(
             orig["id"], orig["channel_id"], orig["guild_id"]
         )

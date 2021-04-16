@@ -1,3 +1,5 @@
+from typing import Optional
+
 import discord
 from discord.ext import commands
 
@@ -113,16 +115,8 @@ class AutoStarChannels(commands.Cog):
     )
     @commands.has_guild_permissions(manage_channels=True)
     async def asemojis(self, ctx: commands.Context) -> None:
-        p = utils.clean_prefix(ctx)
-        await ctx.send(
-            t_(
-                "Options:\n```"
-                " - {0}asc emojis add <aschannel> <emoji>\n"
-                " - {0}asc emojis remove <aschannel> <emoji>\n"
-                " - {0}asc emojis clear <aschannel>\n"
-                " - {0}asc emojis set <aschannel> [emoji1, emoji2]```"
-            ).format(p)
-        )
+        """Manage emojis for an AutoStarChannel"""
+        await ctx.send_help(ctx.command)
 
     @asemojis.command(
         name="set", brief="Sets the emojis for an AutoStarChannel"
@@ -171,13 +165,8 @@ class AutoStarChannels(commands.Cog):
         clean = utils.clean_emoji(emoji)
         try:
             await self.bot.db.aschannels.add_asemoji(aschannel.obj.id, clean)
-        except errors.AlreadyExists:
-            # Raise a more user-friendly error message
-            raise errors.AlreadyExists(
-                t_("{0} is already an emoji on {1}.").format(
-                    emoji, aschannel.obj.mention
-                )
-            )
+        except errors.AlreadyASEmoji:
+            raise errors.AlreadyASEmoji(emoji, aschannel.obj.mention)
         old = utils.pretty_emoji_string(aschannel.sql["emojis"], ctx.guild)
         new = utils.pretty_emoji_string(
             aschannel.sql["emojis"] + [emoji], ctx.guild
@@ -208,12 +197,8 @@ class AutoStarChannels(commands.Cog):
             await self.bot.db.aschannels.remove_asemojis(
                 aschannel.obj.id, clean
             )
-        except errors.DoesNotExist:
-            raise errors.DoesNotExist(
-                t_("{0} is not an emoji on {1}.").format(
-                    emoji, aschannel.obj.mention
-                )
-            )
+        except errors.NotASEmoji:
+            raise errors.NotASEmoji(emoji, aschannel.obj.mention)
         _new = aschannel.sql["emojis"]
         old = utils.pretty_emoji_string(aschannel.sql["emojis"], ctx.guild)
         _new.remove(clean)
@@ -323,7 +308,7 @@ class AutoStarChannels(commands.Cog):
         self,
         ctx: commands.Context,
         aschannel: converters.ASChannel,
-        regex: str,
+        regex: Optional[str] = None,
     ) -> None:
         """Sets the regex setting for an AutoStarChannel.
 
@@ -350,7 +335,7 @@ class AutoStarChannels(commands.Cog):
         self,
         ctx: commands.Context,
         aschannel: converters.ASChannel,
-        exclude_regex: str,
+        exclude_regex: Optional[str] = None,
     ) -> None:
         """Sets the excludeRegex setting for an AutoStarChannel.
 

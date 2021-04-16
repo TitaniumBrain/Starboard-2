@@ -8,6 +8,8 @@ from .database_functions import (
     guilds,
     members,
     messages,
+    permgroups,
+    permroles,
     reactions,
     sb_messags,
     starboards,
@@ -23,7 +25,7 @@ class Database:
         self.user = user
         self.password = password
 
-        self.pool: asyncpg.pool.Pool = None
+        self.pool: Optional[asyncpg.pool.Pool] = None
 
         self.sql_times: dict = {}
 
@@ -32,6 +34,8 @@ class Database:
         self.users = users.Users(self)
         self.aschannels = aschannels.ASChannels(self)
         self.starboards = starboards.Starboards(self)
+        self.permgroups = permgroups.PermGroups(self)
+        self.permroles = permroles.PermRoles(self)
         self.messages = messages.Messages(self)
         self.sb_messages = sb_messags.SBMessages(self)
         self.reactions = reactions.Reactions(self)
@@ -52,14 +56,14 @@ class Database:
                 for index in ALL_INDEXES:
                     await con.execute(index)
 
-    async def execute(self, sql: str, *args: list) -> None:
+    async def execute(self, sql: str, *args: Any) -> None:
         async with self.pool.acquire() as con:
             async with con.transaction():
                 s = time.time()
                 await con.execute(sql, *args)
         self.log(sql, time.time() - s)
 
-    async def fetch(self, sql: str, *args: list) -> list[dict]:
+    async def fetch(self, sql: str, *args: Any) -> list[dict]:
         async with self.pool.acquire() as con:
             async with con.transaction():
                 s = time.time()
@@ -67,7 +71,7 @@ class Database:
         self.log(sql, time.time() - s)
         return result
 
-    async def fetchrow(self, sql: str, *args: list) -> Optional[dict]:
+    async def fetchrow(self, sql: str, *args: Any) -> Optional[dict]:
         async with self.pool.acquire() as con:
             async with con.transaction():
                 s = time.time()
@@ -75,7 +79,7 @@ class Database:
         self.log(sql, time.time() - s)
         return result
 
-    async def fetchval(self, sql: str, *args: list) -> Optional[Any]:
+    async def fetchval(self, sql: str, *args: Any) -> Optional[Any]:
         async with self.pool.acquire() as con:
             async with con.transaction():
                 s = time.time()

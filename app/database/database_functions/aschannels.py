@@ -1,22 +1,31 @@
 from typing import Optional
 
 import asyncpg
-import discord
+from aiocache import Cache, SimpleMemoryCache
+from discord.ext import commands
 
 from app import errors
+from app.classes.nonexist import nonexist
 from app.i18n import t_
 
 
 class ASChannels:
     def __init__(self, db) -> None:
         self.db = db
+        self.id_cache: SimpleMemoryCache = Cache(namespace="asc_id", ttl=10)
 
     async def get(self, aschannel_id: int) -> Optional[dict]:
-        return await self.db.fetchrow(
+        r = await self.id_cache.get(aschannel_id)
+        if r is not None:
+            return r if r is not nonexist else None
+
+        r = await self.db.fetchrow(
             """SELECT * FROM aschannels
             WHERE id=$1""",
             aschannel_id,
         )
+        await self.id_cache.set(aschannel_id, r if r else nonexist)
+        return r
 
     async def get_many(self, guild_id: int) -> list[dict]:
         return await self.db.fetch(
@@ -35,9 +44,7 @@ class ASChannels:
 
         is_starboard = await self.db.starboards.get(channel_id) is not None
         if is_starboard:
-            raise errors.AlreadyExists(
-                t_("That channel is already a starboard!")
-            )
+            raise errors.CannotBeStarboardAndAutostar()
 
         await self.db.guilds.create(guild_id)
         try:
@@ -49,6 +56,7 @@ class ASChannels:
             )
         except asyncpg.exceptions.UniqueViolationError:
             return True
+        await self.id_cache.delete(channel_id)
         return False
 
     async def delete(self, aschannel_id: int) -> None:
@@ -57,6 +65,7 @@ class ASChannels:
             WHERE id=$1""",
             aschannel_id,
         )
+        await self.id_cache.delete(aschannel_id)
 
     async def edit(
         self,
@@ -70,11 +79,7 @@ class ASChannels:
     ) -> None:
         asc = await self.get(aschannel_id)
         if not asc:
-            raise errors.DoesNotExist(
-                t_("No AutoStarChannel found with id {0}.").format(
-                    aschannel_id
-                )
-            )
+            raise errors.NotAutoStarChannel(str(aschannel_id))
 
         settings = {
             "emojis": asc["emojis"] if emojis is None else emojis,
@@ -92,11 +97,9 @@ class ASChannels:
         }
 
         if settings["min_chars"] < 0:
-            raise discord.InvalidArgument(
-                t_("minChars cannot be less than 0.")
-            )
+            raise commands.BadArgument(t_("minChars cannot be less than 0."))
         if settings["min_chars"] > 2000:
-            raise discord.InvalidArgument(
+            raise commands.BadArgument(
                 t_("minChars cannot be grater than 2,000.")
             )
 
@@ -117,6 +120,7 @@ class ASChannels:
             settings["regex"],
             settings["exclude_regex"],
         )
+        await self.id_cache.delete(aschannel_id)
 
     async def add_asemoji(self, aschannel_id: int, emoji: str) -> None:
         aschannel = await self.get(aschannel_id)
@@ -125,11 +129,7 @@ class ASChannels:
                 f"Could not find aschannel {aschannel_id}."
             )
         if emoji in aschannel["emojis"]:
-            raise errors.AlreadyExists(
-                t_("{0} is already an emoji on {1}.").format(
-                    emoji, aschannel_id
-                )
-            )
+            raise errors.AlreadyASEmoji(emoji, aschannel_id)
         new_emojis: list = aschannel["emojis"]
         new_emojis.append(emoji)
         await self.edit(aschannel_id, emojis=new_emojis)
@@ -141,9 +141,7 @@ class ASChannels:
                 f"Could not find aschannel {aschannel_id}."
             )
         if emoji not in aschannel["emojis"]:
-            raise errors.DoesNotExist(
-                t_("{0} is not an emoji on {1}.").format(emoji, aschannel_id)
-            )
+            raise errors.NotASEmoji(emoji, str(aschannel_id))
         new_emojis: list = aschannel["emojis"]
         new_emojis.remove(emoji)
         await self.edit(aschannel_id, emojis=new_emojis)

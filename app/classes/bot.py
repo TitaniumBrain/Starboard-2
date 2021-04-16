@@ -5,17 +5,19 @@ import os
 import sys
 import textwrap
 import traceback
-from contextlib import redirect_stdout
+from contextlib import asynccontextmanager, redirect_stdout
 from typing import Any, Optional, Union
 
+import aiohttp
 import discord
 from discord.ext import commands
 from discord_slash import SlashCommand
 from dotenv import load_dotenv
-from pretty_help import Navigation, PrettyHelp
+from pretty_help import PrettyHelp
 
 from app import i18n
 from app.classes.ipc_connection import WebsocketConnection
+from app.menus import HelpMenu
 
 from ..database.database import Database
 
@@ -39,8 +41,8 @@ class Bot(commands.AutoShardedBot):
         super().__init__(
             help_command=PrettyHelp(
                 color=self.theme_color,
-                navigation=Navigation("⬅️", "➡️", "⏹️"),
                 command_attrs={"name": "commands", "hidden": True},
+                menu=HelpMenu,
             ),
             command_prefix=self._prefix_callable,
             **kwargs,
@@ -82,6 +84,8 @@ class Bot(commands.AutoShardedBot):
         for ext in kwargs.pop("initial_extensions"):
             self.load_extension(ext)
 
+        self.loop.run_until_complete(self.set_session())
+
         try:
             self.run(kwargs["token"])
         except Exception as e:
@@ -89,16 +93,39 @@ class Bot(commands.AutoShardedBot):
         else:
             sys.exit(-1)
 
-    async def set_locale(self, message: discord.Message) -> None:
-        if message.guild.id in self.locale_cache:
-            locale = self.locale_cache[message.guild.id]
+    async def set_session(self):
+        self.session = aiohttp.ClientSession()
+
+    def get_webhook(self, url: str) -> discord.Webhook:
+        return discord.Webhook.from_url(
+            url, adapter=discord.AsyncWebhookAdapter(self.session)
+        )
+
+    @asynccontextmanager
+    async def temp_locale(
+        self, obj: Union[discord.User, discord.Member, discord.Guild]
+    ):
+        revert_to = i18n.current_locale.get()
+        try:
+            await self.set_locale(obj)
+            yield
+        finally:
+            i18n.current_locale.set(revert_to)
+
+    async def set_locale(
+        self, obj: Union[discord.User, discord.Member, discord.Guild]
+    ):
+        if obj.id in self.locale_cache:
+            locale = self.locale_cache[obj.id]
         else:
-            guild = await self.db.guilds.get(message.guild.id)
-            if guild:
-                locale = guild["locale"]
+            if isinstance(obj, (discord.User, discord.Member)):
+                sql_user = await self.db.users.get(obj.id)
+                locale = sql_user["locale"] if sql_user else "en_US"
             else:
-                locale = "en_US"
-            self.locale_cache[message.guild.id] = locale
+                sql_guild = await self.db.guilds.get(obj.id)
+                locale = sql_guild["locale"] if sql_guild else "en_US"
+
+            self.locale_cache[obj.id] = locale
 
         i18n.current_locale.set(locale)
 
@@ -133,6 +160,7 @@ class Bot(commands.AutoShardedBot):
 
     async def close(self, *args, **kwargs):
         await self.db.pool.close()
+        await self.session.close()
         self.log.info("shutting down")
         await self.websocket.close()
         await super().close()

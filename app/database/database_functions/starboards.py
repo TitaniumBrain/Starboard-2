@@ -1,7 +1,8 @@
 from typing import Optional
 
 import asyncpg
-import discord
+from aiocache import Cache, SimpleMemoryCache
+from discord.ext import commands
 
 from app import errors
 from app.i18n import t_
@@ -10,20 +11,63 @@ from app.i18n import t_
 class Starboards:
     def __init__(self, db) -> None:
         self.db = db
+        self.cache: SimpleMemoryCache = Cache(namespace="starboards", ttl=10)
+        self.many_cache: SimpleMemoryCache = Cache(namespace="many_sb", ttl=10)
+        self.emoji_cache: SimpleMemoryCache = Cache(
+            namespace="sb_emojis", ttl=10
+        )
+
+    async def _starboard_edited(
+        self, starboard_id: int, guild_id: Optional[int] = None
+    ):
+        await self.cache.delete(starboard_id)
+        if guild_id:
+            await self.emoji_cache.delete(guild_id)
+            await self.many_cache.delete(guild_id)
+
+    async def star_emojis(self, guild_id: int) -> list[str]:
+        r = await self.emoji_cache.get(guild_id)
+        if r:
+            return r
+
+        _emojis = await self.db.execute(
+            """SELECT star_emojis FROM starboards
+            WHERE guild_id=$1""",
+            guild_id,
+        )
+        if _emojis:
+            emojis = [
+                emoji for record in _emojis for emoji in record["star_emojis"]
+            ]
+        else:
+            emojis = []
+
+        await self.emoji_cache.set(guild_id, emojis)
+        return emojis
 
     async def get(self, starboard_id: int) -> Optional[dict]:
-        return await self.db.fetchrow(
+        r = await self.cache.get(starboard_id)
+        if r:
+            return r
+        sql_starboard = await self.db.fetchrow(
             """SELECT * FROM starboards
             WHERE id=$1""",
             starboard_id,
         )
+        await self.cache.set(starboard_id, sql_starboard)
+        return sql_starboard
 
     async def get_many(self, guild_id: int) -> list[dict]:
-        return await self.db.fetch(
+        r = await self.many_cache.get(guild_id)
+        if r:
+            return r
+        sql_starboards = await self.db.fetch(
             """SELECT * FROM starboards
             WHERE guild_id=$1""",
             guild_id,
         )
+        await self.many_cache.set(guild_id, sql_starboards)
+        return sql_starboards
 
     async def create(
         self, channel_id: int, guild_id: int, check_first: bool = True
@@ -35,9 +79,7 @@ class Starboards:
 
         is_asc = await self.db.aschannels.get(channel_id) is not None
         if is_asc:
-            raise errors.AlreadyExists(
-                t_("That channel is already an AutoStarChannel!")
-            )
+            raise errors.CannotBeStarboardAndAutostar()
 
         await self.db.guilds.create(guild_id)
         try:
@@ -49,12 +91,51 @@ class Starboards:
             )
         except asyncpg.exceptions.UniqueViolationError:
             return True
+
+        await self._starboard_edited(channel_id, guild_id)
+
         return False
 
     async def delete(self, starboard_id: int) -> None:
+        s = await self.get(starboard_id)
+        if not s:
+            return
+
         await self.db.execute(
             """DELETE FROM starboards WHERE id=$1""", starboard_id
         )
+
+        await self._starboard_edited(starboard_id, int(s["guild_id"]))
+
+    async def set_webhook(self, starboard_id: int, url: Optional[str]):
+        await self.db.execute(
+            """UPDATE starboards
+            SET webhook_url=$1
+            WHERE id=$2""",
+            url,
+            starboard_id,
+        )
+        await self._starboard_edited(starboard_id)
+
+    async def set_webhook_name(self, starboard_id: int, name: str):
+        await self.db.execute(
+            """UPDATE starboards
+            SET webhook_name=$1
+            WHERE id=$2""",
+            name,
+            starboard_id,
+        )
+        await self._starboard_edited(starboard_id)
+
+    async def set_webhook_avatar(self, starboard_id: int, url: str):
+        await self.db.execute(
+            """UPDATE starboards
+            SET webhook_avatar=$1
+            WHERE id=$2""",
+            url,
+            starboard_id,
+        )
+        await self._starboard_edited(starboard_id)
 
     async def edit(
         self,
@@ -77,12 +158,11 @@ class Starboards:
         color: int = None,
         channel_bl: list[int] = None,
         channel_wl: list[int] = None,
+        use_webhook: bool = None,
     ) -> None:
         s = await self.get(starboard_id)
         if not s:
-            raise errors.DoesNotExist(
-                f"Starboard {starboard_id} does not exist."
-            )
+            raise errors.NotStarboard(starboard_id)
 
         settings = {
             "required": s["required"] if required is None else required,
@@ -123,29 +203,32 @@ class Starboards:
             "channel_wl": s["channel_wl"]
             if channel_wl is None
             else channel_wl,
+            "use_webhook": s["use_webhook"]
+            if use_webhook is None
+            else use_webhook,
         }
 
         if settings["required"] <= settings["required_remove"]:
-            raise discord.InvalidArgument(
+            raise commands.BadArgument(
                 t_(
                     "requiredStars cannot be less than or equal to "
                     "requiredRemove."
                 )
             )
         if settings["required"] < 1:
-            raise discord.InvalidArgument(
+            raise commands.BadArgument(
                 t_("requiredStars cannot be less than 1.")
             )
         if settings["required"] > 500:
-            raise discord.InvalidArgument(
+            raise commands.BadArgument(
                 t_("requiredStars cannot be greater than 500.")
             )
         if settings["required_remove"] < -1:
-            raise discord.InvalidArgument(
+            raise commands.BadArgument(
                 t_("requiredRemove cannot be less than -1.")
             )
         if settings["required_remove"] > 495:
-            raise discord.InvalidArgument(
+            raise commands.BadArgument(
                 t_("requiredRemove cannot be greater than 495.")
             )
 
@@ -168,8 +251,9 @@ class Starboards:
             color = $15,
             ping = $16,
             channel_bl = $17,
-            channel_wl = $18
-            WHERE id = $19""",
+            channel_wl = $18,
+            use_webhook = $19
+            WHERE id = $20""",
             settings["required"],
             settings["required_remove"],
             settings["autoreact"],
@@ -188,8 +272,11 @@ class Starboards:
             settings["ping"],
             settings["channel_bl"],
             settings["channel_wl"],
+            settings["use_webhook"],
             starboard_id,
         )
+
+        await self._starboard_edited(starboard_id, int(s["guild_id"]))
 
     async def add_star_emoji(self, starboard_id: int, emoji: str) -> None:
         if type(emoji) is not str:
@@ -201,11 +288,7 @@ class Starboards:
                 f"Could not find starboard {starboard_id}."
             )
         if emoji in starboard["star_emojis"]:
-            raise errors.AlreadyExists(
-                t_("{0} is already a starEmoji on {1}.").format(
-                    emoji, starboard["id"]
-                )
-            )
+            raise errors.AlreadySBEmoji(emoji, starboard["id"])
 
         await self.edit(
             starboard_id, star_emojis=starboard["star_emojis"] + [emoji]
@@ -221,11 +304,7 @@ class Starboards:
                 f"Could not find starboard {starboard_id}."
             )
         if emoji not in starboard["star_emojis"]:
-            raise errors.DoesNotExist(
-                t_("{0} is already a starEmoji on {1}.").format(
-                    emoji, starboard["id"]
-                )
-            )
+            raise errors.AlreadySBEmoji(emoji, starboard["id"])
 
         new_emojis = starboard["star_emojis"]
         new_emojis.remove(emoji)

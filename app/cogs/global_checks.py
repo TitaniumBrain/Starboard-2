@@ -2,7 +2,7 @@ from discord.ext import commands
 
 from app import errors
 from app.classes.bot import Bot
-from app.i18n import t_
+from app.cogs.permroles import pr_functions
 
 
 async def not_disabled(ctx: commands.Context) -> bool:
@@ -15,19 +15,35 @@ async def not_disabled(ctx: commands.Context) -> bool:
         raise errors.AllCommandsDisabled()
     name = ctx.command.qualified_name
     if name in guild["disabled_commands"]:
-        raise errors.CommandDisabled(
-            t_(
-                "The command {0} has been disabled "
-                "by the moderators of this server."
-            ).format(name)
-        )
+        raise errors.CommandDisabled(name)
     return True
 
 
-GLOBAL_CHECKS = [
-    not_disabled,
-    commands.bot_has_permissions(send_messages=True),
-]
+async def can_use_commands(ctx: commands.Context) -> bool:
+    if ctx.guild is None:
+        return True
+    if ctx.channel.permissions_for(ctx.message.author).administrator:
+        return True
+    perms = await pr_functions.get_perms(
+        ctx.bot,
+        [r.id for r in ctx.message.author.roles],
+        ctx.guild.id,
+        ctx.channel.id,
+        None,
+    )
+    if not perms["allow_commands"]:
+        raise errors.CannotUseCommands()
+    return True
+
+
+async def can_send_messages(ctx: commands.Context) -> bool:
+    user = ctx.me
+    if not ctx.channel.permissions_for(user).send_messages:
+        raise commands.BotMissingPermissions(("Send Messages",))
+    return True
+
+
+GLOBAL_CHECKS = [not_disabled, can_send_messages, can_use_commands]
 
 
 def setup(bot: Bot) -> None:

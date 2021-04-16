@@ -20,7 +20,7 @@ GUILDS = """CREATE TABLE IF NOT EXISTS guilds (
 
         prefixes VARCHAR(8)[] NOT NULL DEFAULT '{"sb!"}',
 
-        xp_cooldown_time SMALLINT DEFAULT 3,
+        xp_cooldown SMALLINT DEFAULT 3,
         xp_cooldown_per SMALLINT DEFAULT 60,
 
         locale TEXT NOT NULL DEFAULT 'en_US'
@@ -29,7 +29,10 @@ GUILDS = """CREATE TABLE IF NOT EXISTS guilds (
 USERS = """CREATE TABLE IF NOT EXISTS users (
         id NUMERIC PRIMARY KEY,
         is_bot BOOL NOT NULL,
-        votes SMALLINT NOT NULL DEFAULT 0
+        votes SMALLINT NOT NULL DEFAULT 0,
+
+        locale TEXT NOT NULL DEFAULT 'en_US',
+        public BOOL NOT NULL DEFAULT true
     )"""
 
 MEMBERS = """CREATE TABLE IF NOT EXISTS members (
@@ -77,6 +80,11 @@ STARBOARDS = """CREATE TABLE IF NOT EXISTS starboards (
         star_emojis TEXT[] DEFAULT '{⭐}',
         display_emoji TEXT DEFAULT '⭐',
 
+        use_webhook BOOL NOT NULL DEFAULT false,
+        webhook_name VARCHAR(32) DEFAULT NULL,
+        webhook_avatar TEXT DEFAULT NULL,
+        webhook_url TEXT DEFAULT NULL,
+
         FOREIGN KEY (guild_id) REFERENCES guilds (id)
             ON DELETE CASCADE
     )"""
@@ -101,6 +109,7 @@ PERMGROUPS = """CREATE TABLE IF NOT EXISTS permgroups (
         id SERIAL PRIMARY KEY,
         guild_id NUMERIC NOT NULL,
         index SMALLINT NOT NULL,
+        name VARCHAR(32) NOT NULL,
 
         starboards NUMERIC[] DEFAULT '{}',
         channels NUMERIC[] DEFAULT '{}',
@@ -110,17 +119,16 @@ PERMGROUPS = """CREATE TABLE IF NOT EXISTS permgroups (
 )"""
 
 PERMROLES = """CREATE TABLE IF NOT EXISTS permroles (
-        permgroup_id NUMERIC NOT NULL,
+        permgroup_id BIGINT NOT NULL,
         role_id NUMERIC NOT NULL,
         index SMALLINT NOT NULL,
 
         allow_commands BOOL DEFAULT NULL,
-        recv_stars BOOL DEFAULT NULL,
+        on_starboard BOOL DEFAULT NULL,
         give_stars BOOL DEFAULT NULL,
         gain_xp BOOL DEFAULT NULL,
         pos_roles BOOL DEFAULT NULL,
         xp_roles BOOL DEFAULT NULL,
-        overrides BOOL DEFAULT NULL,
 
         FOREIGN KEY (permgroup_id) REFERENCES permgroups (id)
             ON DELETE CASCADE
@@ -184,8 +192,8 @@ ALL_TABLES = [
     MEMBERS,
     STARBOARDS,
     ASCHANNELS,
-    # PERMGROUPS,
-    # PERMROLES,
+    PERMGROUPS,
+    PERMROLES,
     MESSAGES,
     STARBOARD_MESSAGES,
     REACTIONS,
