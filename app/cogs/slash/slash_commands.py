@@ -22,21 +22,20 @@ class SlashCommands(commands.Cog):
         await ctx.send(content="Pong!", hidden=True)
 
     @commands.command(
-        name="slash", brief="Get a link for authorizing slash commands"
+        name="slash", help=t_("Get a link for authorizing slash commands")
     )
     @commands.bot_has_permissions(embed_links=True)
     @commands.guild_only()
     async def check_slash(self, ctx: commands.Context) -> None:
-        """Get a link to authorize slash commands"""
         slash_auth = config.SLASH_AUTH + f"&guild_id={ctx.guild.id}"
         embed = discord.Embed(
             title="Slash Commands",
             description=t_(
                 "Try running `/ping` to see if slash commands "
                 "are working. If not, a server admin can use "
-                "[this link]({slash_auth}) to give me "
+                "[this link]({}) to give me "
                 "the proper permissions."
-            ).config(slash_auth),
+            ).format(slash_auth),
             color=self.bot.theme_color,
         )
         await ctx.send(embed=embed)

@@ -9,6 +9,23 @@ from app.i18n import t_
 
 
 # Custom CommandErrors
+class SupportServerOnly(commands.BadArgument):
+    def __init__(self):
+        super().__init__()
+
+
+class XpRoleAlreadyExists(commands.BadArgument):
+    def __init__(self, role: str):
+        message = t_("{0} is already an XPRole.").format(role)
+        super().__init__(message=message)
+
+
+class XpRoleNotFound(commands.BadArgument):
+    def __init__(self, role: str):
+        message = t_("{0} is not a XPRole.").format(role)
+        super().__init__(message=message)
+
+
 class PermRoleAlreadyExists(commands.BadArgument):
     def __init__(self, role: str, group: str):
         message = t_("{0} is already a PermRole on the PermGroup {1}.").format(
@@ -80,7 +97,7 @@ class NotASEmoji(commands.BadArgument):
         message = t_("{0} is not an emoji on the AutoStarChannel {1}.").format(
             emoji, aschannel
         )
-        super().__init__(mesage=message)
+        super().__init__(message=message)
 
 
 class AlreadyASEmoji(commands.BadArgument):

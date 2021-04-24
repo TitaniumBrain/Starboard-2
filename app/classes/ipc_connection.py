@@ -1,8 +1,13 @@
 import asyncio
 import json
+import pathlib
+import ssl
 from typing import Any, Callable, Optional
 
 import websockets
+
+SSL_CONTEXT = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+SSL_CONTEXT.load_verify_locations(pathlib.Path("localhost.pem"))
 
 
 class WebsocketConnection:
@@ -49,7 +54,7 @@ class WebsocketConnection:
             raise
 
         if expect_resp:
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(0.25)
             return self.callbacks.pop(to_send["callback"])
         return None
 
@@ -71,6 +76,11 @@ class WebsocketConnection:
                 return
             raise
 
+    async def handle_command(self, msg: dict[str, Any]):
+        resp = await self.on_command(msg)
+        if msg["respond"] and resp:
+            await self.send_response(msg["callback"], resp)
+
     async def recv_loop(self):
         if not self.websocket:
             raise Exception("Websocket not initialized.")
@@ -90,13 +100,12 @@ class WebsocketConnection:
                     self.callbacks[msg["callback"]].append(msg)
                 continue
 
-            resp = await self.on_command(msg)
-
-            if msg["respond"] and resp:
-                await self.send_response(msg["callback"], resp)
+            await self.loop.create_task(self.handle_command(msg))
 
     async def ensure_connection(self):
-        self.websocket = await websockets.connect("ws://localhost:4000")
+        self.websocket = await websockets.connect(
+            "wss://localhost:4000", ssl=SSL_CONTEXT
+        )
         await self.websocket.send(self.name_id.encode("utf-8"))
         await self.websocket.recv()
 

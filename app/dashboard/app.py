@@ -33,9 +33,28 @@ app.config["WEBSOCKET"] = None
 discord = DiscordOAuth2Session(app)
 
 
+async def get_guild(guild_id: int):
+    guilds = await discord.fetch_guilds()
+    guild = None
+    for g in guilds:
+        if g.id == guild_id:
+            guild = g
+            break
+    return guild
+
+
 async def handle_login(next: str = ""):
     return await discord.create_session(
         scope=["identify", "guilds"], data={"type": "user", "next": next}
+    )
+
+
+async def handle_invite(guild_id: int):
+    return await discord.create_session(
+        scope=["bot"],
+        data={"type": "guild"},
+        permissions=config.BOT_PERM_INT,
+        guild_id=guild_id,
     )
 
 
@@ -75,6 +94,18 @@ def can_manage_list(guilds: list) -> list:
         if can_manage(g):
             result.append(g)
     return result
+
+
+async def does_share(guild) -> bool:
+    try:
+        resp = await app.config["WEBSOCKET"].send_command(
+            "is_mutual", {"gid": guild.id}, expect_resp=True
+        )
+    except Exception as e:
+        print(e)
+        return False
+    print(resp)
+    return resp
 
 
 # Jump Routes
@@ -145,6 +176,60 @@ async def profile_premium():
     return await render_template("dashboard/premium.jinja", user=user)
 
 
+@app.route("/dashboard/servers/<int:guild_id>/")
+@requires_authorization
+async def server_general(guild_id: int):
+    user = await discord.fetch_user()
+
+    guild = await get_guild(guild_id)
+
+    if not guild:
+        return redirect(url_for("servers"))
+    if not can_manage(guild):
+        return redirect(url_for("servers"))
+
+    if not await does_share(guild):
+        return await handle_invite(guild.id)
+
+    return await render_template(
+        "dashboard/server/general.jinja", user=user, guild=guild
+    )
+
+
+@app.route("/dashboard/servers/<int:guild_id>/starboards/")
+@requires_authorization
+async def server_starboards(guild_id: int):
+    user = await discord.fetch_user()
+    guild = await get_guild(guild_id)
+
+    if not guild or not can_manage(guild):
+        return redirect(url_for("servers"))
+
+    if not await does_share(guild):
+        return await handle_invite(guild.id)
+
+    return await render_template(
+        "dashboard/server/starboards.jinja", user=user, guild=guild
+    )
+
+
+@app.route("/dashboard/servers/<int:guild_id>/autostar/")
+@requires_authorization
+async def server_autostar(guild_id: int):
+    user = await discord.fetch_user()
+    guild = await get_guild(guild_id)
+
+    if not guild or not can_manage(guild):
+        return redirect(url_for("servers"))
+
+    if not await does_share(guild):
+        return await handle_invite(guild.id)
+
+    return await render_template(
+        "dashboard/server/autostar.jinja", user=user, guild=guild
+    )
+
+
 # Base Routes
 @app.route("/")
 async def index():
@@ -191,6 +276,25 @@ async def login_callback():
             return redirect(data["next"])
         else:
             return redirect(url_for("index"))
+    elif data["type"] == "guild":
+        _gid = request.args.get("guild_id")
+        try:
+            gid = int(_gid)
+        except ValueError:
+            return redirect(url_for("servers"))
+        return redirect(url_for("server_general", guild_id=gid))
+
+
+@app.route("/api/donatebot/", methods=["POST"])
+async def handle_donate_event():
+    data = {
+        "data": await request.get_json(),
+        "auth": request.headers["Authorization"],
+    }
+    await app.config["WEBSOCKET"].send_command(
+        "donate_event", data, expect_resp=False
+    )
+    return "OK"
 
 
 # Other

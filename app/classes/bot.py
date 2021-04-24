@@ -5,6 +5,7 @@ import os
 import sys
 import textwrap
 import traceback
+import typing
 from contextlib import asynccontextmanager, redirect_stdout
 from typing import Any, Optional, Union
 
@@ -20,6 +21,9 @@ from app.classes.ipc_connection import WebsocketConnection
 from app.menus import HelpMenu
 
 from ..database.database import Database
+
+if typing.TYPE_CHECKING:
+    from app.cogs.cache.cache import Cache
 
 load_dotenv()
 
@@ -38,6 +42,8 @@ class Bot(commands.AutoShardedBot):
         self.stats = {}
         self.locale_cache = {}
 
+        self.cache: "Cache"
+
         super().__init__(
             help_command=PrettyHelp(
                 color=self.theme_color,
@@ -54,13 +60,6 @@ class Bot(commands.AutoShardedBot):
 
         self.log = logging.getLogger(f"Cluster#{self.cluster_name}")
         self.log.setLevel(logging.DEBUG)
-        self.log.handlers = [
-            logging.FileHandler(
-                f"logs/cluster-{self.cluster_name}.log",
-                encoding="utf-8",
-                mode="a",
-            )
-        ]
 
         self.db: Database = Database(
             os.getenv("DB_NAME"),
@@ -68,7 +67,7 @@ class Bot(commands.AutoShardedBot):
             os.getenv("DB_PASSWORD"),
         )
         self.pipe = kwargs.pop("pipe")
-        self.slash = SlashCommand(self, override_type=True)
+        self.slash = SlashCommand(self, override_type=True, sync_commands=True)
         self.websocket = WebsocketConnection(
             self.cluster_name, self.handle_websocket_command, self.loop
         )
@@ -201,7 +200,7 @@ class Bot(commands.AutoShardedBot):
 
     async def handle_websocket_command(
         self, msg: dict[str, Any]
-    ) -> Optional[Union[list, str]]:
+    ) -> Optional[Union[list, str, bool]]:
         cmd = msg["name"]
         data = msg["data"]
 
@@ -209,18 +208,27 @@ class Bot(commands.AutoShardedBot):
 
         if cmd == "ping":
             ret = "pong"
-        if cmd == "eval":
+        elif cmd == "eval":
             content = data["content"]
             ret = str(await self.exec(content))
-        if cmd == "set_stats":
+        elif cmd == "set_stats":
             self.stats[msg["author"]] = {
                 "guilds": data["guild_count"],
                 "members": data["member_count"],
             }
-        if cmd == "get_mutual":
+        elif cmd == "get_mutual":
             ret = []
             for gid in data:
                 if self.get_guild(gid):
                     ret.append(gid)
+        elif cmd == "is_mutual":
+            if self.get_guild(data["gid"]):
+                ret = True
+            else:
+                ret = False
+        elif cmd == "donate_event":
+            self.dispatch("donatebot_event", data["data"], data["auth"])
+        elif cmd == "update_prem_roles":
+            self.dispatch("update_prem_roles", int(data["user_id"]))
 
         return ret

@@ -31,6 +31,12 @@ USERS = """CREATE TABLE IF NOT EXISTS users (
         is_bot BOOL NOT NULL,
         votes SMALLINT NOT NULL DEFAULT 0,
 
+        credits INT NOT NULL DEFAULT 0,
+        donation_total INT NOT NULL DEFAULT 0,
+        last_patreon_total INT NOT NULL DEFAULT 0,
+        patron_status patron_status NOT NULL DEFAULT 'no',
+        last_known_monthly INT NOT NULL DEFAULT 0,
+
         locale TEXT NOT NULL DEFAULT 'en_US',
         public BOOL NOT NULL DEFAULT true
     )"""
@@ -68,6 +74,7 @@ STARBOARDS = """CREATE TABLE IF NOT EXISTS starboards (
         no_xp BOOL NOT NULL DEFAULT False,
         explore BOOL NOT NULL DEFAULT True,
         ping BOOL NOT NULL DEFAULT False,
+        remove_invalid BOOL NOT NULL DEFAULT True,
 
         channel_bl NUMERIC[] NOT NULL DEFAULT '{}',
         channel_wl NUMERIC[] NOT NULL DEFAULT '{}',
@@ -134,6 +141,15 @@ PERMROLES = """CREATE TABLE IF NOT EXISTS permroles (
             ON DELETE CASCADE
     )"""
 
+XP_ROLES = """CREATE TABLE IF NOT EXISTS xproles (
+        role_id NUMERIC PRIMARY KEY,
+        guild_id NUMERIC NOT NULL,
+        required SMALLINT NOT NULL,
+
+        FOREIGN KEY (guild_id) REFERENCES guilds (id)
+            ON DELETE CASCADE
+    )"""
+
 MESSAGES = """CREATE TABLE IF NOT EXISTS messages (
         id NUMERIC PRIMARY KEY,
         guild_id NUMERIC NOT NULL,
@@ -194,6 +210,7 @@ ALL_TABLES = [
     ASCHANNELS,
     PERMGROUPS,
     PERMROLES,
+    XP_ROLES,
     MESSAGES,
     STARBOARD_MESSAGES,
     REACTIONS,

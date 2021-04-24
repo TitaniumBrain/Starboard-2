@@ -38,7 +38,7 @@ class LevelingEvents(commands.Cog):
 
         guild = self.bot.get_guild(guild_id)
         _result = await self.bot.cache.get_members(
-            [giver_id, receiver_id], guild
+            [int(giver_id), int(receiver_id)], guild
         )
         if giver_id not in _result:
             return
@@ -126,6 +126,8 @@ class LevelingEvents(commands.Cog):
             await self.bot.set_locale(guild)
             if not receiver.bot:
                 self.bot.dispatch("level_up", guild, receiver, leveled_up)
+
+        self.bot.dispatch("update_xpr", guild.id, receiver.id)
 
 
 def setup(bot: Bot) -> None:

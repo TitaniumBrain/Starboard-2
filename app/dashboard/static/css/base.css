@@ -22,11 +22,16 @@
 }
 
 .min-h-screen-minus-nav {
-    min-height: calc(100vh - 72px);
+    min-height: calc(100vh - 64px);
 }
 
 .link:hover {
     color: hsl(var(--pf));
     text-decoration: underline;
     cursor: pointer;
+}
+
+.btn-error:hover {
+    background-color: hsla(14 90% 52%)!important;
+    border-color: hsla(14 90% 52%)!important;
 }

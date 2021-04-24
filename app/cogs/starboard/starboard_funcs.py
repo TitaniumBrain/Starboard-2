@@ -3,12 +3,111 @@ from typing import Optional
 
 import discord
 
-from app import utils
+from app import gifs, utils
 from app.classes.bot import Bot
 from app.cogs.permroles import pr_functions
 from app.i18n import t_
 
 ZERO_WIDTH_SPACE = "\u200B"
+
+
+async def can_add(
+    bot: Bot,
+    emoji: str,
+    guild_id: int,
+    member: discord.Member,
+    channel_id: int,
+    sql_author: dict,
+    author_roles: list[int],
+) -> tuple[bool, bool]:
+    """Whether or not a user has permission to add a reaction,
+    and returns two values:
+
+    can_add: Whether or not the reaction will count as a point on any of
+        the starboards
+    remove: Whether or not the bot should automatically remove it
+    """
+
+    if member.bot:
+        return False, False  # Completely ignore bot reactions
+
+    # First check if the emoji is a starEmoji on any of the starboards
+    _starboards = await bot.db.fetch(
+        """SELECT * FROM starboards
+        WHERE guild_id=$1
+        AND $2=any(star_emojis)""",
+        guild_id,
+        emoji,
+    )
+    starboards: list[dict] = []
+    for s in _starboards:
+        if s["channel_wl"]:
+            if channel_id not in [int(cid) for cid in s["channel_wl"]]:
+                continue
+        elif s["channel_bl"]:
+            if channel_id not in [int(cid) for cid in s["channel_bl"]]:
+                continue
+        starboards.append(s)
+    if len(starboards) == 0:
+        return False, False
+
+    # Next, check if the reaction is valid or invalid. Can be invalid because:
+    #   It's a selfStar
+    #   The user is missing the proper permissions
+    #   The channel is blacklisted
+    # In order for it to be invalid, the emoji needs to be invalid on *all*
+    # starboards that use this emoji. If any of the starboards consider
+    # it valid, then it cannot be automatically removed or ignored.
+
+    # Start by assuming invalid
+    valid = False
+    remove = True
+
+    current_valid: Optional[bool] = None
+    for s in starboards:
+        if not s["remove_invalid"]:
+            remove = False
+        if current_valid is not None:
+            if current_valid:
+                valid = True
+                break
+
+        current_valid = True
+
+        # Check selfStar
+        if not s["self_star"] and member.id == int(sql_author["id"]):
+            current_valid = False
+            continue
+
+        # Check bots
+        if (not s["allow_bots"]) and sql_author["is_bot"]:
+            current_valid = False
+            continue
+
+        # Check the perms of the star giver
+        giver_perms = await pr_functions.get_perms(
+            bot,
+            [r.id for r in member.roles],
+            guild_id,
+            channel_id,
+            int(s["id"]),
+        )
+        if not giver_perms["give_stars"]:
+            current_valid = False
+            continue
+
+        # Check the perms of the star receiver
+        recv_perms = await pr_functions.get_perms(
+            bot, author_roles, guild_id, channel_id, int(s["id"])
+        )
+        if not recv_perms["on_starboard"]:
+            current_valid = False
+            continue
+
+    if current_valid:
+        valid = True
+
+    return valid, (not valid) and remove
 
 
 def get_plain_text(
@@ -65,7 +164,7 @@ async def embed_message(
     bot: Bot, message: discord.Message, color: str = None, files: bool = True
 ) -> tuple[discord.Embed, list[discord.File]]:
     nsfw = message.channel.is_nsfw()
-    content = utils.escmask(message.system_content)
+    content = utils.escmask(utils.escesc(message.system_content))
 
     urls = []
     extra_attachments = []
@@ -98,12 +197,9 @@ async def embed_message(
         if embed.type in ["rich", "article", "link"]:
             if embed.title != embed.Empty:
                 if embed.url == embed.Empty:
-                    content += f"\n\n__**{utils.escmd(embed.title)}**__\n"
+                    content += f"\n\n__**{embed.title}**__\n"
                 else:
-                    content += (
-                        f"\n\n__**[{utils.escmd(embed.title)}]({embed.url})"
-                        "**__\n"
-                    )
+                    content += f"\n\n__**[{embed.title}]({embed.url})**__\n"
             else:
                 content += "\n"
             content += (
@@ -113,7 +209,7 @@ async def embed_message(
             )
 
             for field in embed.fields:
-                name = f"\n**{utils.escmd(field.name)}**\n"
+                name = f"\n**{field.name}**\n"
                 value = f"{field.value}\n"
 
                 content += name + value
@@ -158,10 +254,11 @@ async def embed_message(
                 )
         elif embed.type == "gifv":
             if embed.url is not embed.Empty:
+                gif_url = await gifs.get_gif_url(bot, embed.url)
                 urls.append(
                     {
                         "name": "GIF",
-                        "display_url": embed.thumbnail.url,
+                        "display_url": gif_url or embed.thumbnail.url,
                         "url": embed.url,
                         "type": "gif",
                         "spoiler": False,

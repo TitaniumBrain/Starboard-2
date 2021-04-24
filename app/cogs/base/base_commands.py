@@ -4,8 +4,8 @@ import discord
 from discord.ext import commands
 
 import config
-from app.i18n import ft_, t_
-from app.utils import ms
+from app.i18n import t_
+from app.utils import clean_prefix, ms
 
 from ...classes.bot import Bot
 
@@ -15,7 +15,7 @@ class Base(commands.Cog):
 
     def __init__(self, bot: Bot) -> None:
         self.bot = bot
-        self.about_starboard = ft_(
+        self.about_starboard = t_(
             "A Starboard is a bot that allows users of a server"
             ' to "vote" to "pin" a message. The main idea is this:\n'
             " - You set a channel as the starboard, typically called "
@@ -29,11 +29,10 @@ class Base(commands.Cog):
             "your starboard."
         )
 
-    @commands.command(name="credits", brief="Show credits")
+    @commands.command(name="credits", help=t_("Show credits"))
     @commands.bot_has_permissions(embed_links=True)
     @commands.guild_only()
     async def show_credits(self, ctx: commands.Context):
-        """Show credits for Starboard"""
         embed = (
             discord.Embed(
                 title=t_("Starboard Credits"),
@@ -70,16 +69,15 @@ class Base(commands.Cog):
 
         await ctx.send(embed=embed)
 
-    @commands.command(name="help", brief="Get help with Starboard")
+    @commands.command(name="help", help=t_("Get help with Starboard"))
     @commands.bot_has_permissions(embed_links=True)
     async def starboard_help(
         self, ctx: commands.Context, *, command=None
     ) -> None:
-        """Get help with Starboard"""
         if command:
             return await ctx.send_help(command)
 
-        p = ctx.prefix
+        p = clean_prefix(ctx)
 
         embed = discord.Embed(
             title="Staboard Help",
@@ -94,17 +92,15 @@ class Base(commands.Cog):
             ).format(config, p),
             color=self.bot.theme_color,
         ).add_field(
-            name=t_("What is a Starboard?"), value=t_(self.about_starboard)
+            name=t_("What is a Starboard?"), value=self.about_starboard
         )
         await ctx.send(embed=embed)
 
     @commands.command(
-        name="botstats", aliases=["botinfo"], brief="Shows bot statistics"
+        name="botstats", aliases=["botinfo"], help=t_("Shows bot statistics")
     )
     @commands.bot_has_permissions(embed_links=True)
     async def botinfo(self, ctx: commands.Context) -> None:
-        """Sends guildCount and memberCount for each
-        cluster"""
         clusters = [c for _, c in self.bot.stats.items()]
         total_guilds = sum([c["guilds"] for c in clusters])
         total_members = sum([c["members"] for c in clusters])
@@ -129,19 +125,17 @@ class Base(commands.Cog):
     @commands.command(
         name="ping",
         aliases=["latency"],
-        brief="Shows current clusters and shards latency",
+        help=t_("Shows current clusters and shards latency"),
     )
     @commands.bot_has_permissions(embed_links=True)
     async def ping(self, ctx: commands.Context) -> None:
-        """Sends the latency of the current cluster
-        and shard."""
         cluster = self.bot.cluster_name
         shard = self.bot.get_shard(ctx.guild.shard_id if ctx.guild else 0)
 
         t1 = time.time()
-        m = await ctx.send("Pinging...")
+        m = await ctx.send(t_("Pinging..."))
         t2 = time.time()
-        await m.edit(content="Editing...")
+        await m.edit(content=t_("Editing..."))
         t3 = time.time()
         await m.delete()
         t4 = time.time()
@@ -172,11 +166,10 @@ class Base(commands.Cog):
     @commands.command(
         name="links",
         aliases=["invite", "support"],
-        brief="Lists important/useful links",
+        help=t_("Lists important/useful links"),
     )
     @commands.bot_has_permissions(embed_links=True)
     async def links(self, ctx: commands.Context) -> None:
-        """Shows important/useful links"""
         embed = (
             discord.Embed(
                 title=t_("Important Links"),
@@ -213,14 +206,12 @@ class Base(commands.Cog):
     @commands.command(
         name="vote",
         aliases=["votes"],
-        brief="View vote links and number of times you've voted",
+        help=t_("View vote links and number of times you've voted"),
     )
     @commands.bot_has_permissions(embed_links=True)
     async def vote(
         self, ctx: commands.Context, user: discord.User = None
     ) -> None:
-        """Shows the number of times you or another user
-        has voted, and also lists voting links"""
         user = user or ctx.message.author
         if user.bot:
             await ctx.send(

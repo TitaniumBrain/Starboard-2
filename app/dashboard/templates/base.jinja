@@ -4,6 +4,8 @@
     <head>
         <meta charset="utf-8">
 
+        <link rel="icon" href="{{ url_for('static', filename='img/favicon.ico') }}"/>
+
         <title>Starboard</title>
         <meta name="description" content="The best Discord Starboard">
         <meta name="author" content="Circuit">
@@ -18,7 +20,7 @@
         <div class="drawer">
             <input id="id-drawer" type="checkbox" class="drawer-toggle">
             <div class="drawer-content flex flex-col">
-                <div class="navbar mb-2 shadow-lg bg-neutral-focus text-neutral-content">
+                <div class="navbar bg-neutral-focus text-neutral-content">
                     <div class="flex-none lg:hidden">
                         <label for="id-drawer" class="btn btn-square btn-ghost">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block w-6 h-6 stroke-current">
@@ -68,8 +70,10 @@
                         {% endif %}
                     </div>
                 </div>
-                <div>
-                    {% block content %}{% endblock %}
+                <div class="min-h-screen-minus-nav flex flex-col">
+                    <div class="flex-grow flex flex-col">
+                        {% block content %}{% endblock %}
+                    </div>
 
                     <div class="grid grid-cols-1 sm:grid-cols-3 bg-neutral-focus p-8 gap-4" style="border-top: 1px solid grey;">
                         <div>
