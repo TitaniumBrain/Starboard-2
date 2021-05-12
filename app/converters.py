@@ -6,6 +6,9 @@ import emoji
 from discord.ext import commands
 from discord.ext.commands.errors import ChannelNotFound, RoleNotFound
 
+import config
+from app.classes.bot import Bot
+from app.classes.context import MyContext
 from app.i18n import t_
 
 from . import errors
@@ -68,13 +71,30 @@ def myfloat(arg: str) -> float:
         )
 
 
+def language(arg: str) -> tuple[str, str]:
+    arg = arg.lower()
+
+    langs = config.LANGUAGE_MAP
+    for lang in langs:
+        codes = []
+        codes.append(lang["code"])
+        codes.append(lang["name"])
+        codes.extend(lang["aliases"])
+        codes = [c.lower() for c in codes]
+
+        if arg in codes:
+            return lang["code"], lang["name"]
+
+    raise errors.InvalidLocale(arg)
+
+
 class OrNone(commands.Converter):
     def __init__(
         self, subconverter: Union[commands.Converter, Callable[[str], Any]]
     ):
         self.subconverter = subconverter
 
-    async def convert(self, ctx: commands.Context, arg: str) -> Any:
+    async def convert(self, ctx: "MyContext", arg: str) -> Any:
         acceptable_nones = ["none", "default"]
         try:
             if isinstance(self.subconverter, commands.Converter):
@@ -88,10 +108,52 @@ class OrNone(commands.Converter):
             raise
 
 
-class GuildMessage(commands.MessageConverter):
-    async def convert(self, ctx: commands.Context, arg: str):
+class PartialMessage(commands.PartialMessageConverter):
+    async def convert(self, ctx: "MyContext", arg: str):
+        if arg.casefold().strip() == "^":
+            history = await ctx.channel.history(limit=2).flatten()
+            try:
+                m = history[-1]
+            except IndexError:
+                pass
+            else:
+                return m
+        return await super().convert(ctx, arg)
+
+
+class PartialGuildMessage(PartialMessage):
+    async def convert(
+        self, ctx: "MyContext", arg: str
+    ) -> Union[discord.Message, discord.PartialMessage]:
         m = await super().convert(ctx, arg)
-        if m.guild != ctx.guild:
+        if m.guild:
+            if m.guild != ctx.guild:
+                raise commands.MessageNotFound(arg)
+        elif m.channel != ctx.channel:
+            raise commands.MessageNotFound(arg)
+        return m
+
+
+class Message(commands.MessageConverter):
+    async def convert(self, ctx: "MyContext", arg: str) -> discord.Message:
+        if arg.casefold().strip() == "^":
+            history = await ctx.channel.history(limit=2).flatten()
+            try:
+                m = history[-1]
+            except IndexError:
+                pass
+            else:
+                return m
+        return await super().convert(ctx, arg)
+
+
+class GuildMessage(Message):
+    async def convert(self, ctx: "MyContext", arg: str):
+        m = await super().convert(ctx, arg)
+        if m.guild:
+            if m.guild != ctx.guild:
+                raise commands.MessageNotFound(arg)
+        elif m.channel != ctx.channel:
             raise commands.MessageNotFound(arg)
         return m
 
@@ -100,15 +162,16 @@ class Role(commands.RoleConverter):
     """Same as default role converter, except that it ignores
     @everyone"""
 
-    async def convert(self, ctx: commands.Context, arg: str) -> discord.Role:
+    async def convert(self, ctx: "MyContext", arg: str) -> discord.Role:
         role = await super().convert(ctx, arg)
-        if role.id == ctx.guild.default_role:
+        if role.id == ctx.guild.default_role.id:
             raise RoleNotFound(arg)
+        return role
 
 
 class Emoji(commands.Converter):
     async def convert(
-        self, ctx: commands.Context, arg: str
+        self, ctx: "MyContext", arg: str
     ) -> Union[discord.Emoji, str]:
         animated_pattern = "^<:.*:[0-9]+>$"
         custom_pattern = "^<a:.*:[0-9]+>$"
@@ -138,7 +201,7 @@ class Emoji(commands.Converter):
 
 
 class Starboard(commands.TextChannelConverter):
-    async def convert(self, ctx: commands.Context, arg: str) -> SQLObject:
+    async def convert(self, ctx: "MyContext", arg: str) -> SQLObject:
         channel = await super().convert(ctx, arg)
         if channel.guild != ctx.guild:
             raise ChannelNotFound(arg)
@@ -151,7 +214,7 @@ class Starboard(commands.TextChannelConverter):
 
 
 class ASChannel(commands.TextChannelConverter):
-    async def convert(self, ctx: commands.Context, arg: str) -> SQLObject:
+    async def convert(self, ctx: "MyContext", arg: str) -> SQLObject:
         channel = await super().convert(ctx, arg)
         if channel.guild != ctx.guild:
             raise ChannelNotFound(arg)
@@ -164,17 +227,34 @@ class ASChannel(commands.TextChannelConverter):
 
 
 class Command(commands.Converter):
-    async def convert(
-        self, ctx: commands.Context, arg: str
-    ) -> commands.Command:
+    async def convert(self, ctx: "MyContext", arg: str) -> commands.Command:
+        if arg == "_commands":
+            raise errors.NotCommand(arg)
         cmd = ctx.bot.get_command(arg)
         if not cmd:
             raise errors.NotCommand(arg)
         return cmd
 
 
+class CommandOrCog(Command):
+    async def convert(
+        self, ctx: "MyContext", arg: str
+    ) -> Union[commands.Cog, commands.Command]:
+        try:
+            return await super().convert(ctx, arg)
+        except errors.NotCommand:
+            pass
+
+        bot: Bot = ctx.bot
+        cog = bot.get_cog(arg)
+        if cog:
+            return cog
+
+        raise errors.CommandCategoryNotFound(arg)
+
+
 class PermGroup(commands.Converter):
-    async def convert(self, ctx: commands.Context, arg: str) -> dict:
+    async def convert(self, ctx: "MyContext", arg: str) -> dict:
         permgroup = await ctx.bot.db.permgroups.get_name(ctx.guild.id, arg)
 
         if not permgroup:
@@ -183,8 +263,23 @@ class PermGroup(commands.Converter):
         return permgroup
 
 
+class PermRole(Role):
+    def __init__(self, group_arg_index: int):
+        self.group_arg_index = group_arg_index
+        super().__init__()
+
+    async def convert(self, ctx: "MyContext", arg: str) -> SQLObject:
+        group = ctx.args[self.group_arg_index]
+        role = await super().convert(ctx, arg)
+
+        permrole = await ctx.bot.db.permroles.get(role.id, int(group["id"]))
+        if not permrole:
+            raise errors.PermRoleNotFound(role.name, group["name"])
+        return SQLObject(role, permrole)
+
+
 class XPRole(Role):
-    async def convert(self, ctx: commands.Context, arg: str) -> SQLObject:
+    async def convert(self, ctx: "MyContext", arg: str) -> SQLObject:
         role = await super().convert(ctx, arg)
         xprole = await ctx.bot.db.xproles.get(role.id)
         if not xprole:

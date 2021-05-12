@@ -5,6 +5,7 @@ import discord
 from discord.ext import commands, flags
 
 from app import converters, errors, menus, utils
+from app.classes.context import MyContext
 from app.i18n import t_
 
 from . import pr_functions
@@ -25,7 +26,9 @@ class PermRoles(commands.Cog):
     @flags.add_flag("--me", action="store_true")
     @flags.command(
         name="dummy",
-        help=t_("Tests the permissions of a fake user with certain roles"),
+        help=t_(
+            "Tests the permissions of a fake user with certain roles", True
+        ),
     )
     @commands.has_guild_permissions(manage_guild=True)
     @commands.guild_only()
@@ -65,14 +68,14 @@ class PermRoles(commands.Cog):
     @commands.group(
         name="permgroups",
         aliases=["pg", "permroles", "pr"],
-        help=t_("Lists permgroups, or views settings for a permgroup."),
+        help=t_("Lists permgroups, or views settings for a permgroup.", True),
         invoke_without_command=True,
     )
     @commands.bot_has_permissions(embed_links=True)
     @commands.guild_only()
     async def permgroups(
         self,
-        ctx: commands.Context,
+        ctx: "MyContext",
         group: Optional[converters.PermGroup] = None,
     ):
         if not group:
@@ -89,10 +92,15 @@ class PermRoles(commands.Cog):
                 )
                 await ctx.send(embed=embed)
         else:
+            p = utils.clean_prefix(ctx)
             embed = (
                 discord.Embed(
                     title=f"PermGroup {group['name']}",
                     color=self.bot.theme_color,
+                    description=t_(
+                        "If you're looking for the PermRoles "
+                        "of this PermGroup, run {0}."
+                    ).format(f"`{p}pg roles {group['name']}`"),
                 )
                 .add_field(
                     name="channels",
@@ -109,34 +117,37 @@ class PermRoles(commands.Cog):
             )
             await ctx.send(embed=embed)
 
-    @permgroups.command(name="add", help=t_("Add a permgroup"))
+    @permgroups.command(name="add", help=t_("Add a permgroup", True))
     @commands.bot_has_permissions(embed_links=True)
     @commands.has_guild_permissions(manage_guild=True)
     @commands.guild_only()
-    async def add_permgroup(self, ctx: commands.Context, name: str):
+    async def add_permgroup(self, ctx: "MyContext", name: str):
         await self.bot.db.permgroups.create(ctx.guild.id, name)
         await ctx.send(t_("Created PermGroup {0}").format(name))
 
     @permgroups.command(
         name="delete",
         aliases=["remove", "rm", "del"],
-        help=t_("Deletes a permgroup"),
+        help=t_("Deletes a permgroup", True),
     )
     @commands.has_guild_permissions(manage_guild=True)
     @commands.guild_only()
     async def del_permgroup(
-        self, ctx: commands.Context, group: converters.PermGroup
+        self, ctx: "MyContext", group: converters.PermGroup
     ):
         await self.bot.db.permgroups.delete(group["id"])
         await ctx.send(t_("Deleted PermGroup {0}").format(group["name"]))
 
     @permgroups.command(
-        name="move", help=t_("Sets the position of a permgroup")
+        name="move", help=t_("Sets the position of a permgroup", True)
     )
     @commands.has_guild_permissions(manage_guild=True)
     @commands.guild_only()
     async def move_permgroup(
-        self, ctx: commands.Context, group: converters.PermGroup, position: int
+        self,
+        ctx: "MyContext",
+        group: converters.PermGroup,
+        position: converters.myint,
     ):
         new_index = await self.bot.db.permgroups.move(group["id"], position)
         await ctx.send(
@@ -148,24 +159,26 @@ class PermRoles(commands.Cog):
     @permgroups.group(
         name="channels",
         aliases=["c"],
-        help=t_("Manage the channels that a PermGroup affects"),
+        help=t_("Manage the channels that a PermGroup affects", True),
         invoke_without_command=True,
     )
     @commands.has_guild_permissions(manage_guild=True)
     @commands.guild_only()
-    async def pg_channels(self, ctx: commands.Context):
+    async def pg_channels(self, ctx: "MyContext"):
         await ctx.send_help(ctx.command)
 
     @pg_channels.command(
         name="add",
         aliases=["a"],
-        help=t_("Adds channel(s) to the list of channels for a PermGroup"),
+        help=t_(
+            "Adds channel(s) to the list of channels for a PermGroup", True
+        ),
     )
     @commands.has_guild_permissions(manage_guild=True)
     @commands.guild_only()
     async def add_pg_channels(
         self,
-        ctx: commands.Context,
+        ctx: "MyContext",
         group: converters.PermGroup,
         *channels: discord.TextChannel,
     ):
@@ -186,13 +199,15 @@ class PermRoles(commands.Cog):
     @pg_channels.command(
         name="remove",
         aliases=["rm", "r", "del", "delete"],
-        help=t_("Removes channel(s) from the list of channels on a PermGroup"),
+        help=t_(
+            "Removes channel(s) from the list of channels on a PermGroup", True
+        ),
     )
     @commands.has_guild_permissions(manage_guild=True)
     @commands.guild_only()
     async def remove_pg_channels(
         self,
-        ctx: commands.Context,
+        ctx: "MyContext",
         group: converters.PermGroup,
         *channels: discord.TextChannel,
     ):
@@ -211,12 +226,12 @@ class PermRoles(commands.Cog):
         )
 
     @pg_channels.command(
-        name="clear", help=t_("Clears all channels from a PermGroup")
+        name="clear", help=t_("Clears all channels from a PermGroup", True)
     )
     @commands.has_guild_permissions(manage_guild=True)
     @commands.guild_only()
     async def clear_pg_channels(
-        self, ctx: commands.Context, group: converters.PermGroup
+        self, ctx: "MyContext", group: converters.PermGroup
     ):
         if not await menus.Confirm(
             t_(
@@ -237,27 +252,29 @@ class PermRoles(commands.Cog):
     @permgroups.group(
         name="starboards",
         aliases=["s"],
-        help=t_("Manage the starboards that a PermGroup affects"),
+        help=t_("Manage the starboards that a PermGroup affects", True),
         invoke_without_command=True,
     )
     @commands.has_guild_permissions(manage_guild=True)
     @commands.guild_only()
     async def pg_starboards(
         self,
-        ctx: commands.Context,
+        ctx: "MyContext",
     ):
         await ctx.send_help(ctx.command)
 
     @pg_starboards.command(
         name="add",
         aliases=["a"],
-        help=t_("Adds starboard(s) to the list of starboards for a PermGroup"),
+        help=t_(
+            "Adds starboard(s) to the list of starboards for a PermGroup", True
+        ),
     )
     @commands.has_guild_permissions(manage_guild=True)
     @commands.guild_only()
     async def add_pg_starboards(
         self,
-        ctx: commands.Context,
+        ctx: "MyContext",
         group: converters.PermGroup,
         *starboards: converters.Starboard,
     ):
@@ -278,14 +295,16 @@ class PermRoles(commands.Cog):
         name="remove",
         aliases=["r", "rm", "del", "delete"],
         help=t_(
-            "Removes starboard(s) from the list " "of starboars on a PermGroup"
+            "Removes starboard(s) from the list "
+            "of starboars on a PermGroup",
+            True,
         ),
     )
     @commands.has_guild_permissions(manage_guild=True)
     @commands.guild_only()
     async def remove_pg_starboards(
         self,
-        ctx: commands.Context,
+        ctx: "MyContext",
         group: converters.PermGroup,
         *starboards: converters.Starboard,
     ):
@@ -303,12 +322,12 @@ class PermRoles(commands.Cog):
         )
 
     @pg_starboards.command(
-        name="clear", help=t_("Clears all starboards on a PermGroup")
+        name="clear", help=t_("Clears all starboards on a PermGroup", True)
     )
     @commands.has_guild_permissions(manage_guild=True)
     @commands.guild_only()
     async def clear_pg_starboards(
-        self, ctx: commands.Context, group: converters.PermGroup
+        self, ctx: "MyContext", group: converters.PermGroup
     ):
         if not await menus.Confirm(
             t_(
@@ -329,17 +348,24 @@ class PermRoles(commands.Cog):
     @permgroups.group(
         name="roles",
         aliases=["permroles", "pr"],
-        help=t_("Manage/View PermRoles for a PermGroup"),
+        help=t_("Manage/View PermRoles for a PermGroup", True),
         invoke_without_command=True,
     )
     @commands.has_guild_permissions(manage_guild=True)
     @commands.guild_only()
     async def permroles(
         self,
-        ctx: commands.Context,
+        ctx: "MyContext",
         group: converters.PermGroup,
     ):
         permroles = await self.bot.db.permroles.get_many(group["id"])
+        if not permroles:
+            await ctx.send(
+                t_("There are no PermRoles for the PermGroup **{0}**.").format(
+                    group["name"]
+                )
+            )
+            return
         embeds = []
         for role_group in utils.chunk_list(permroles, 9):
             embed = discord.Embed(
@@ -357,15 +383,17 @@ class PermRoles(commands.Cog):
         await paginator.start(ctx)
 
     @permroles.command(
-        name="add", aliases=["a"], help=t_("Adds a PermRole to a PermGroup")
+        name="add",
+        aliases=["a"],
+        help=t_("Adds a PermRole to a PermGroup", True),
     )
     @commands.has_guild_permissions(manage_guild=True)
     @commands.guild_only()
     async def add_permrole(
         self,
-        ctx: commands.Context,
+        ctx: "MyContext",
         group: converters.PermGroup,
-        role: discord.Role,
+        role: converters.Role,
     ):
         if (await self.bot.db.permroles.get(role.id, group["id"])) is not None:
             raise errors.PermRoleAlreadyExists(role.name, group["name"])
@@ -380,76 +408,70 @@ class PermRoles(commands.Cog):
     @permroles.command(
         name="remove",
         aliases=["r", "rm", "del", "delete"],
-        help=t_("Removes a PermRole from a PermGroup"),
+        help=t_("Removes a PermRole from a PermGroup", True),
     )
     @commands.has_guild_permissions(manage_guild=True)
     @commands.guild_only()
     async def remove_permrole(
         self,
-        ctx: commands.Context,
+        ctx: "MyContext",
         group: converters.PermGroup,
-        role: discord.Role,
+        role: converters.PermRole(-1),
     ):
-        permrole = await self.bot.db.permroles.get(role.id, group["id"])
-        if not permrole:
-            raise errors.PermRoleNotFound(role.name, group["name"])
-
-        await self.bot.db.permroles.delete(role.id, group["id"])
+        await self.bot.db.permroles.delete(role.obj.id, group["id"])
         await ctx.send(
             t_("{0} is no longer a PermRole on the PermGroup {1}.").format(
-                role, group["name"]
+                role.obj.name, group["name"]
             )
         )
 
     @permroles.command(
         name="move",
-        help=t_("Changes the position of a PermRole in a PermGroup"),
+        help=t_("Changes the position of a PermRole in a PermGroup", True),
     )
     @commands.has_guild_permissions(manage_guild=True)
     @commands.guild_only()
     async def move_permrole(
         self,
-        ctx: commands.Context,
+        ctx: "MyContext",
         group: converters.PermGroup,
-        role: discord.Role,
+        role: converters.PermRole(-1),
         new_position: converters.myint,
     ):
-        permrole = await self.bot.db.permroles.get(role.id, group["id"])
-        if not permrole:
-            raise errors.PermRoleNotFound(role.name, group["name"])
-
         new_index = await self.bot.db.permroles.move(
-            role.id, group["id"], new_position
+            role.obj.id, group["id"], new_position
         )
         await ctx.send(
             t_("Moved the PermRole {0} from {1} to {2}.").format(
-                role.name, permrole["index"], new_index
+                role.name, role.sql["index"], new_index
             )
         )
 
     @permroles.command(
         name="allowCommands",
         aliases=["commands"],
-        help=t_("Sets the allowCommands permission for a PermRole"),
+        help=t_("Sets the allowCommands permission for a PermRole", True),
     )
     @commands.has_guild_permissions(manage_guild=True)
     @commands.guild_only()
     async def pr_allow_commands(
         self,
-        ctx: commands.Context,
+        ctx: "MyContext",
         group: converters.PermGroup,
-        role: discord.Role,
+        role: converters.PermRole(-1),
         allow_commands: converters.OrNone(converters.mybool),
     ):
-        pr = await self.bot.db.permroles.get(role.id, group["id"])
-        if not pr:
-            raise errors.PermRoleNotFound(role.name, group["name"])
-        await self.bot.db.permroles.set_allow_commands(
-            role.id, group["id"], allow_commands
+        await self.bot.db.permroles.edit(
+            role.obj.id, group["id"], allow_commands=allow_commands
         )
         await ctx.send(
             embed=utils.cs_embed(
-                {"allowCommnads": (pr["allow_commands"], allow_commands)},
+                {
+                    "allowCommnads": (
+                        role.sql["allow_commands"],
+                        allow_commands,
+                    )
+                },
                 self.bot,
             )
         )
@@ -457,128 +479,116 @@ class PermRoles(commands.Cog):
     @permroles.command(
         name="onStarboard",
         aliases=["starbaord"],
-        help=t_("Sets the onStarboard permission for a PermRole"),
+        help=t_("Sets the onStarboard permission for a PermRole", True),
     )
     @commands.has_guild_permissions(manage_guild=True)
     @commands.guild_only()
     async def pr_on_starboard(
         self,
-        ctx: commands.Context,
+        ctx: "MyContext",
         group: converters.PermGroup,
-        role: discord.Role,
+        role: converters.PermRole(-1),
         on_starboard: converters.OrNone(converters.mybool),
     ):
-        pr = await self.bot.db.permroles.get(role.id, group["id"])
-        if not pr:
-            raise errors.PermRoleNotFound(role.name, group["name"])
-        await self.bot.db.permroles.set_on_starboard(
-            role.id, group["id"], on_starboard
+        await self.bot.db.permroles.edit(
+            role.obj.id, group["id"], on_starboard=on_starboard
         )
         await ctx.send(
             embed=utils.cs_embed(
-                {"onStarboard": (pr["on_starboard"], on_starboard)}, self.bot
+                {"onStarboard": (role.sql["on_starboard"], on_starboard)},
+                self.bot,
             )
         )
 
     @permroles.command(
         name="giveStars",
         aliases=["give"],
-        help=t_("Sets the giveStars permission for a PermRole"),
+        help=t_("Sets the giveStars permission for a PermRole", True),
     )
     @commands.has_guild_permissions(manage_guild=True)
     @commands.guild_only()
     async def pr_give_stars(
         self,
-        ctx: commands.Context,
+        ctx: "MyContext",
         group: converters.PermGroup,
-        role: discord.Role,
+        role: converters.PermRole(-1),
         give_stars: converters.OrNone(converters.mybool),
     ):
-        pr = await self.bot.db.permroles.get(role.id, group["id"])
-        if not pr:
-            raise errors.PermRoleNotFound(role.name, group["name"])
-        await self.bot.db.permroles.set_give_stars(
-            role.id, group["id"], give_stars
+        await self.bot.db.permroles.edit(
+            role.boj.id, group["id"], give_stars=give_stars
         )
         await ctx.send(
             embed=utils.cs_embed(
-                {"giveStars": (pr["give_stars"], give_stars)}, self.bot
+                {"giveStars": (role.sql["give_stars"], give_stars)}, self.bot
             )
         )
 
     @permroles.command(
         name="gainXP",
         aliases=["xp"],
-        help=t_("Sets the gainXP permission for a PermRole"),
+        help=t_("Sets the gainXP permission for a PermRole", True),
     )
     @commands.has_guild_permissions(manage_guild=True)
     @commands.guild_only()
     async def pr_gain_xp(
         self,
-        ctx: commands.Context,
+        ctx: "MyContext",
         group: converters.PermGroup,
-        role: discord.Role,
+        role: converters.PermRole(-1),
         gain_xp: converters.OrNone(converters.mybool),
     ):
-        pr = await self.bot.db.permroles.get(role.id, group["id"])
-        if not pr:
-            raise errors.PermRoleNotFound(role.name, group["name"])
-        await self.bot.db.permroles.set_gain_xp(role.id, group["id"], gain_xp)
+        await self.bot.db.permroles.edit(
+            role.obj.id, group["id"], gain_xp=gain_xp
+        )
         await ctx.send(
             embed=utils.cs_embed(
-                {"gainXP": (pr["gain_xp"], gain_xp)}, self.bot
+                {"gainXP": (role.sql["gain_xp"], gain_xp)}, self.bot
             )
         )
 
     @permroles.command(
         name="posRoles",
         aliases=["pr"],
-        help=t_("Sets the posRoles permission for a PermRole"),
+        help=t_("Sets the posRoles permission for a PermRole", True),
     )
     @commands.has_guild_permissions(manage_guild=True)
     @commands.guild_only()
     async def pr_pos_roles(
         self,
-        ctx: commands.Context,
+        ctx: "MyContext",
         group: converters.PermGroup,
-        role: discord.Role,
+        role: converters.PermRole(-1),
         pos_roles: converters.OrNone(converters.mybool),
     ):
-        pr = await self.bot.db.permroles.get(role.id, group["id"])
-        if not pr:
-            raise errors.PermRoleNotFound(role.name, group["name"])
-        await self.bot.db.permroles.set_pos_roles(
-            role.id, group["id"], pos_roles
+        await self.bot.db.permroles.edit(
+            role.obj.id, group["id"], pos_roles=pos_roles
         )
         await ctx.send(
             embed=utils.cs_embed(
-                {"posRoles": (pr["pos_roles"], pos_roles)}, self.bot
+                {"posRoles": (role.sql["pos_roles"], pos_roles)}, self.bot
             )
         )
 
     @permroles.command(
         name="xpRoles",
         aliases=["xpr"],
-        help=t_("Sets the xpRoles permission for a PermRole"),
+        help=t_("Sets the xpRoles permission for a PermRole", True),
     )
     @commands.has_guild_permissions(manage_guild=True)
     @commands.guild_only()
     async def pr_xp_roles(
         self,
-        ctx: commands.Context,
+        ctx: "MyContext",
         group: converters.PermGroup,
-        role: discord.Role,
+        role: converters.PermRole(-1),
         xp_roles: converters.OrNone(converters.mybool),
     ):
-        pr = await self.bot.db.permroles.get(role.id, group["id"])
-        if not pr:
-            raise errors.PermRoleNotFound(role.name, group["name"])
-        await self.bot.db.permroles.set_xp_roles(
-            role.id, group["id"], xp_roles
+        await self.bot.db.permroles.edit(
+            role.obj.id, group["id"], xp_roles=xp_roles
         )
         await ctx.send(
             embed=utils.cs_embed(
-                {"xpRoles": (pr["xp_roles"], xp_roles)}, self.bot
+                {"xpRoles": (role.sql["xp_roles"], xp_roles)}, self.bot
             )
         )
 

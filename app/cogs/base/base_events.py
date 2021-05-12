@@ -9,6 +9,7 @@ from discord.ext import commands, flags
 from dotenv import load_dotenv
 
 from app import utils
+from app.classes.context import MyContext
 from app.i18n import t_
 
 from ... import errors
@@ -18,6 +19,7 @@ load_dotenv()
 
 IGNORED_ERRORS = (
     commands.CommandNotFound,
+    commands.DisabledCommand,
     errors.AllCommandsDisabled,
     errors.CannotUseCommands,
     errors.SupportServerOnly,
@@ -106,9 +108,11 @@ class BaseEvents(commands.Cog):
         self,
         title: str,
         error: Exception,
-        args: list[Any] = [],
-        kwargs: dict = {},
+        args: list[Any] = None,
+        kwargs: dict = None,
     ) -> None:
+        args = args or []
+        kwargs = kwargs or {}
         p = commands.Paginator(prefix="```python")
 
         p.add_line(title)
@@ -149,15 +153,21 @@ class BaseEvents(commands.Cog):
             return
         await self.bot.set_locale(message.author)
         if message.content.replace("!", "") == self.bot.user.mention:
-            p = utils.escmd((await self.bot.get_prefix(message))[0])
-            await message.channel.send(t_("My prefix is `{0}`.").format(p))
+            prefixes = await utils.get_prefix(self.bot, message, False)
+            if not prefixes:
+                prefix = utils.clean_prefix_no_ctx(
+                    self.bot.user.mention + " ", self.bot.user
+                )
+            else:
+                prefix = utils.escmd(prefixes[0])
+            await message.channel.send(
+                t_("My prefix is `{0}`.").format(prefix)
+            )
         else:
             await self.bot.process_commands(message)
 
     @commands.Cog.listener()
-    async def on_command_error(
-        self, ctx: commands.Context, e: Exception
-    ) -> None:
+    async def on_command_error(self, ctx: "MyContext", e: Exception) -> None:
         try:
             e = e.original
         except AttributeError:
@@ -256,9 +266,12 @@ def setup(bot: Bot) -> None:
     bot.add_cog(BaseEvents(bot))
 
     @bot.before_invoke
-    async def create_data(message: discord.Message) -> None:
-        if message.guild is None:
+    # TODO: put this as async def _before_invoke
+    # in bot class
+    async def before_invoke(ctx: "MyContext") -> None:
+        if ctx.guild is None:
             return
-        await bot.db.guilds.create(message.guild.id)
-        await bot.db.users.create(message.author.id, message.author.bot)
-        await bot.db.members.create(message.author.id, message.guild.id)
+
+        await bot.db.guilds.create(ctx.guild.id)
+        await bot.db.users.create(ctx.author.id, ctx.author.bot)
+        await bot.db.members.create(ctx.author.id, ctx.guild.id)

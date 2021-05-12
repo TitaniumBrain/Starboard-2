@@ -3,6 +3,7 @@ from typing import Optional, Union
 import discord
 from discord.ext import commands
 
+from app.classes.context import MyContext
 from app.i18n import t_
 
 from ... import converters, errors, menus, utils
@@ -18,13 +19,13 @@ class Starboard(commands.Cog):
     @commands.group(
         name="starboards",
         aliases=["s"],
-        help=t_("List starboards"),
+        help=t_("List starboards", True),
         invoke_without_command=True,
     )
     @commands.bot_has_permissions(embed_links=True)
     @commands.guild_only()
     async def starboards(
-        self, ctx: commands.Context, starboard: converters.Starboard = None
+        self, ctx: "MyContext", starboard: converters.Starboard = None
     ) -> None:
         p = utils.escmd(ctx.prefix)
         if starboard is None:
@@ -68,51 +69,66 @@ class Starboard(commands.Cog):
             upvote_emoji_str = utils.pretty_emoji_string(
                 s["star_emojis"], ctx.guild
             )
-            embed = discord.Embed(
-                title=starboard.obj.name,
-                description=(
-                    f"emojis: **{upvote_emoji_str}**\n"
-                    f"displayEmoji: **{s['display_emoji']}**\n"
-                    f"color: **{s['color']}**\n"
-                    f"useWebhook: **{s['use_webhook']}**\n"
-                    f"username: **{s['webhook_name']}**\n"
-                    + (
-                        f"avatar: [view]({s['webhook_avatar']})\n"
-                        if s["webhook_avatar"]
-                        else "avatar: Default\n"
-                    )
-                    + "\n"
-                    f"requiredStars: **{s['required']}**\n"
-                    f"requiredRemove: **{s['required_remove']}**\n"
-                    f"selfStar: **{s['self_star']}**\n"
-                    f"allowBots: **{s['allow_bots']}**\n"
-                    f"imagesOnly: **{s['images_only']}**\n"
-                    f"regex: `{s['regex'] or 'None'}`\n"
-                    f"excludeRegex: `{s['exclude_regex'] or 'None'}`\n"
-                    "\n"
-                    f"ping: **{s['ping']}**\n"
-                    f"autoReact: **{s['autoreact']}**\n"
-                    f"linkDeletes: **{s['link_deletes']}**\n"
-                    f"linkEdits: **{s['link_edits']}**\n"
-                    f"removeInvalid: **{s['remove_invalid']}**\n"
-                    f"noXp: **{s['no_xp']}**\n"
-                    f"allowRandom: **{s['explore']}**\n"
-                ),
-                color=self.bot.theme_color,
+            embed = (
+                discord.Embed(
+                    title=starboard.obj.name,
+                    color=self.bot.theme_color,
+                )
+                .add_field(
+                    name="Appearance",
+                    value=(
+                        f"displayEmoji: **{s['display_emoji']}**\n"
+                        f"color: **{s['color']}**\n"
+                        f"useWebhook: **{s['use_webhook']}**\n"
+                        f"username: **{s['webhook_name']}**\n"
+                        + (
+                            f"avatar: [view]({s['webhook_avatar']})\n"
+                            if s["webhook_avatar"]
+                            else "avatar: Default\n"
+                        )
+                    ),
+                )
+                .add_field(
+                    name="Requirements",
+                    value=(
+                        f"emojis: **{upvote_emoji_str}**\n"
+                        f"requiredStars: **{s['required']}**\n"
+                        f"requiredRemove: **{s['required_remove']}**\n"
+                        f"selfStar: **{s['self_star']}**\n"
+                        f"allowBots: **{s['allow_bots']}**\n"
+                        f"imagesOnly: **{s['images_only']}**\n"
+                        f"regex: `{s['regex'] or 'None'}`\n"
+                        f"excludeRegex: `{s['exclude_regex'] or 'None'}`\n"
+                    ),
+                )
+                .add_field(
+                    name="Behaviour",
+                    value=(
+                        f"ping: **{s['ping']}**\n"
+                        f"autoReact: **{s['autoreact']}**\n"
+                        f"linkDeletes: **{s['link_deletes']}**\n"
+                        f"linkEdits: **{s['link_edits']}**\n"
+                        f"removeInvalid: **{s['remove_invalid']}**\n"
+                        f"noXp: **{s['no_xp']}**\n"
+                        f"allowRandom: **{s['explore']}**\n"
+                    ),
+                )
             )
             await ctx.send(embed=embed)
 
     @starboards.command(
         name="webhook",
         aliases=["useWebhook"],
-        help=t_("Whether or not to use webhooks for starboard messages."),
+        help=t_(
+            "Whether or not to use webhooks for starboard messages.", True
+        ),
     )
     @commands.has_guild_permissions(manage_channels=True)
     @commands.bot_has_permissions(embed_links=True)
     @commands.guild_only()
     async def use_webhook(
         self,
-        ctx: commands.Context,
+        ctx: "MyContext",
         starboard: converters.Starboard,
         enable: converters.mybool,
     ):
@@ -128,13 +144,13 @@ class Starboard(commands.Cog):
 
     @starboards.command(
         name="avatar",
-        help=t_("Sets the avatar for webhook starboard messages."),
+        help=t_("Sets the avatar for webhook starboard messages.", True),
     )
     @commands.has_guild_permissions(manage_channels=True)
     @commands.guild_only()
     async def set_webhook_avatar(
         self,
-        ctx: commands.Context,
+        ctx: "MyContext",
         starboard: converters.Starboard,
         avatar_url: Optional[str] = None,
     ):
@@ -152,8 +168,8 @@ class Starboard(commands.Cog):
                     starboard.obj.mention
                 )
             )
-        await self.bot.db.starboards.set_webhook_avatar(
-            starboard.obj.id, avatar_url
+        await self.bot.db.starboards.edit(
+            starboard.obj.id, webhook_avatar=avatar_url
         )
 
         if avatar_url:
@@ -164,14 +180,14 @@ class Starboard(commands.Cog):
     @starboards.command(
         name="name",
         aliases=["username"],
-        help=t_("Sets the username for webhook starboard messages."),
+        help=t_("Sets the username for webhook starboard messages.", True),
     )
     @commands.has_guild_permissions(manage_channels=True)
     @commands.bot_has_permissions(embed_links=True)
     @commands.guild_only()
     async def set_webhook_name(
         self,
-        ctx: commands.Context,
+        ctx: "MyContext",
         starboard: converters.Starboard,
         *,
         name: Optional[str] = None,
@@ -187,7 +203,7 @@ class Starboard(commands.Cog):
                 starboard.obj.id, use_webhook=True
             )
             enabled = True
-        await self.bot.db.starboards.set_webhook_name(starboard.obj.id, name)
+        await self.bot.db.starboards.edit(starboard.obj.id, webhook_name=name)
 
         settings = {"webhookName": (starboard.sql["webhook_name"], name)}
         if enabled:
@@ -200,10 +216,12 @@ class Starboard(commands.Cog):
             )
         )
 
-    @starboards.command(name="add", aliases=["a"], help=t_("Adds a starboard"))
+    @starboards.command(
+        name="add", aliases=["a"], help=t_("Adds a starboard", True)
+    )
     @commands.has_guild_permissions(manage_channels=True)
     async def add_starboard(
-        self, ctx: commands.Context, channel: discord.TextChannel
+        self, ctx: "MyContext", channel: discord.TextChannel
     ) -> None:
         existed = await self.bot.db.starboards.create(channel.id, ctx.guild.id)
         if existed:
@@ -216,7 +234,7 @@ class Starboard(commands.Cog):
     @starboards.command(
         name="remove",
         aliases=["delete", "del", "r"],
-        help=t_("Removes a starboard"),
+        help=t_("Removes a starboard", True),
     )
     @commands.has_guild_permissions(manage_channels=True)
     @commands.bot_has_permissions(
@@ -224,10 +242,10 @@ class Starboard(commands.Cog):
     )
     @commands.guild_only()
     async def remove_starboard(
-        self, ctx: commands.Context, channel: Union[discord.TextChannel, int]
+        self, ctx: "MyContext", channel: Union[discord.TextChannel, int]
     ) -> None:
-        cid = channel.id if type(channel) is not int else channel
-        cname = channel.mention if type(channel) is not int else channel
+        cid = channel.id if not isinstance(channel, int) else channel
+        cname = channel.mention if not isinstance(channel, int) else channel
         starboard = await self.bot.db.starboards.get(cid)
         if not starboard:
             raise errors.NotStarboard(cname)
@@ -246,14 +264,14 @@ class Starboard(commands.Cog):
     @starboards.command(
         name="displayEmoji",
         aliases=["de"],
-        help=t_("Set the emoji to show next to the points"),
+        help=t_("Set the emoji to show next to the points", True),
     )
     @commands.has_guild_permissions(manage_channels=True)
     @commands.bot_has_permissions(embed_links=True)
     @commands.guild_only()
     async def set_display_emoji(
         self,
-        ctx: commands.Context,
+        ctx: "MyContext",
         starboard: converters.Starboard,
         emoji: converters.Emoji,
     ) -> None:
@@ -271,14 +289,14 @@ class Starboard(commands.Cog):
     @starboards.command(
         name="color",
         aliases=["colour"],
-        help=t_("Sets the embed color of starboard messages"),
+        help=t_("Sets the embed color of starboard messages", True),
     )
     @commands.has_guild_permissions(manage_channels=True)
     @commands.bot_has_permissions(embed_links=True)
     @commands.guild_only()
     async def set_color(
         self,
-        ctx: commands.Context,
+        ctx: "MyContext",
         starboard: converters.Starboard,
         *,
         color: Optional[commands.ColorConverter],
@@ -299,14 +317,14 @@ class Starboard(commands.Cog):
     @starboards.command(
         name="required",
         aliases=["requiredStars", "requiredPoints"],
-        help=t_("Sets the number of reactions a message needs"),
+        help=t_("Sets the number of reactions a message needs", True),
     )
     @commands.has_guild_permissions(manage_channels=True)
     @commands.bot_has_permissions(embed_links=True)
     @commands.guild_only()
     async def set_required(
         self,
-        ctx: commands.Context,
+        ctx: "MyContext",
         starboard: converters.Starboard,
         required: converters.myint,
     ) -> None:
@@ -320,14 +338,14 @@ class Starboard(commands.Cog):
     @starboards.command(
         name="requiredRemove",
         aliases=["rtm"],
-        help=t_("How few stars a message has before it is removed"),
+        help=t_("How few stars a message has before it is removed", True),
     )
     @commands.has_guild_permissions(manage_channels=True)
     @commands.bot_has_permissions(embed_links=True)
     @commands.guild_only()
     async def set_required_remove(
         self,
-        ctx: commands.Context,
+        ctx: "MyContext",
         starboard: converters.Starboard,
         required_remove: converters.myint,
     ) -> None:
@@ -349,14 +367,14 @@ class Starboard(commands.Cog):
     @starboards.command(
         name="selfStar",
         aliases=["ss"],
-        help=t_("Whether or not users can star their own messages"),
+        help=t_("Whether or not users can star their own messages", True),
     )
     @commands.has_guild_permissions(manage_channels=True)
     @commands.bot_has_permissions(embed_links=True)
     @commands.guild_only()
     async def set_self_star(
         self,
-        ctx: commands.Context,
+        ctx: "MyContext",
         starboard: converters.Starboard,
         self_star: converters.mybool,
     ) -> None:
@@ -372,14 +390,16 @@ class Starboard(commands.Cog):
     @starboards.command(
         name="allowBots",
         aliases=["ab"],
-        help=t_("Whether or not bot messages can appear on the starboard"),
+        help=t_(
+            "Whether or not bot messages can appear on the starboard", True
+        ),
     )
     @commands.has_guild_permissions(manage_channels=True)
     @commands.bot_has_permissions(embed_links=True)
     @commands.guild_only()
     async def set_allow_Bots(
         self,
-        ctx: commands.Context,
+        ctx: "MyContext",
         starboard: converters.Starboard,
         allow_bots: converters.mybool,
     ) -> None:
@@ -396,14 +416,14 @@ class Starboard(commands.Cog):
     @starboards.command(
         name="imagesOnly",
         aliases=["requireImage", "io"],
-        help=t_("Whether messages must include an image"),
+        help=t_("Whether messages must include an image", True),
     )
     @commands.has_guild_permissions(manage_channels=True)
     @commands.bot_has_permissions(embed_links=True)
     @commands.guild_only()
     async def set_images_only(
         self,
-        ctx: commands.Context,
+        ctx: "MyContext",
         starboard: converters.Starboard,
         images_only: converters.mybool,
     ) -> None:
@@ -420,14 +440,14 @@ class Starboard(commands.Cog):
     @starboards.command(
         name="regex",
         aliases=["reg"],
-        help=t_("A regex string that all messages must match"),
+        help=t_("A regex string that all messages must match", True),
     )
     @commands.has_guild_permissions(manage_channels=True)
     @commands.bot_has_permissions(embed_links=True)
     @commands.guild_only()
     async def set_regex(
         self,
-        ctx: commands.Context,
+        ctx: "MyContext",
         starboard: converters.Starboard,
         regex: Optional[str] = None,
     ) -> None:
@@ -441,14 +461,14 @@ class Starboard(commands.Cog):
     @starboards.command(
         name="excludeRegex",
         aliases=["eregex", "ereg"],
-        help=t_("A regex string that all messages must not match"),
+        help=t_("A regex string that all messages must not match", True),
     )
     @commands.has_guild_permissions(manage_channels=True)
     @commands.bot_has_permissions(embed_links=True)
     @commands.guild_only()
     async def set_eregex(
         self,
-        ctx: commands.context,
+        ctx: "MyContext",
         starboard: converters.Starboard,
         exclude_regex: Optional[str] = None,
     ) -> None:
@@ -470,14 +490,16 @@ class Starboard(commands.Cog):
     @starboards.command(
         name="ping",
         aliases=["mentionAuthor"],
-        help=t_("Whether or not to mention the author of a starboard message"),
+        help=t_(
+            "Whether or not to mention the author of a starboard message", True
+        ),
     )
     @commands.has_guild_permissions(manage_channels=True)
     @commands.bot_has_permissions(embed_links=True)
     @commands.guild_only()
     async def set_ping(
         self,
-        ctx: commands.Context,
+        ctx: "MyContext",
         starboard: converters.Starboard,
         ping: converters.mybool,
     ) -> None:
@@ -491,14 +513,14 @@ class Starboard(commands.Cog):
     @starboards.command(
         name="autoReact",
         aliases=["ar"],
-        help=t_("Whether to automatically react to starboard messages"),
+        help=t_("Whether to automatically react to starboard messages", True),
     )
     @commands.has_guild_permissions(manage_channels=True)
     @commands.bot_has_permissions(embed_links=True)
     @commands.guild_only()
     async def set_auto_react(
         self,
-        ctx: commands.Context,
+        ctx: "MyContext",
         starboard: converters.Starboard,
         auto_react: converters.mybool,
     ) -> None:
@@ -515,14 +537,16 @@ class Starboard(commands.Cog):
     @starboards.command(
         name="linkDeletes",
         aliases=["ld"],
-        help=t_("Whether to delete the starboard message if the original is"),
+        help=t_(
+            "Whether to delete the starboard message if the original is", True
+        ),
     )
     @commands.has_guild_permissions(manage_channels=True)
     @commands.bot_has_permissions(embed_links=True)
     @commands.guild_only()
     async def set_link_deletes(
         self,
-        ctx: commands.Context,
+        ctx: "MyContext",
         starboard: converters.Starboard,
         link_deletes: converters.mybool,
     ) -> None:
@@ -539,14 +563,16 @@ class Starboard(commands.Cog):
     @starboards.command(
         name="linkEdits",
         aliases=["le"],
-        help=t_("Whether to update starboard messages with edited content"),
+        help=t_(
+            "Whether to update starboard messages with edited content", True
+        ),
     )
     @commands.has_guild_permissions(manage_channels=True)
     @commands.bot_has_permissions(embed_links=True)
     @commands.guild_only()
     async def set_link_edits(
         self,
-        ctx: commands.Context,
+        ctx: "MyContext",
         starboard: converters.Starboard,
         link_edits: converters.mybool,
     ) -> None:
@@ -562,14 +588,14 @@ class Starboard(commands.Cog):
 
     @starboards.command(
         name="noXp",
-        help=t_("Set to True to disable gaining XP for this starboard"),
+        help=t_("Set to True to disable gaining XP for this starboard", True),
     )
     @commands.has_guild_permissions(manage_channels=True)
     @commands.bot_has_permissions(embed_links=True)
     @commands.guild_only()
     async def set_no_xp(
         self,
-        ctx: commands.Context,
+        ctx: "MyContext",
         starboard: converters.Starboard,
         no_xp: converters.mybool,
     ) -> None:
@@ -583,14 +609,14 @@ class Starboard(commands.Cog):
     @starboards.command(
         name="removeInvalid",
         aliases=["rmi", "rminvalid"],
-        help=t_("Whether or not invalid reactions should be removed"),
+        help=t_("Whether or not invalid reactions should be removed", True),
     )
     @commands.has_guild_permissions(manage_channels=True)
     @commands.bot_has_permissions(embed_links=True)
     @commands.guild_only()
     async def set_remove_invalid(
         self,
-        ctx: commands.Context,
+        ctx: "MyContext",
         starboard: converters.Starboard,
         remove_invalid: converters.mybool,
     ) -> None:
@@ -613,7 +639,8 @@ class Starboard(commands.Cog):
         name="allowRandom",
         aliases=["rand", "explore"],
         help=t_(
-            "Whether or not the random command can pull from this starboard"
+            "Whether or not the random command can pull from this starboard",
+            True,
         ),
     )
     @commands.has_guild_permissions(manage_channels=True)
@@ -621,7 +648,7 @@ class Starboard(commands.Cog):
     @commands.guild_only()
     async def set_allow_random(
         self,
-        ctx: commands.Context,
+        ctx: "MyContext",
         starboard: converters.Starboard,
         allow_random: converters.mybool,
     ) -> None:
@@ -638,22 +665,22 @@ class Starboard(commands.Cog):
     @starboards.group(
         name="starEmojis",
         aliases=["emojis", "se", "e"],
-        help=t_("Modify starEmojis for a starboard"),
+        help=t_("Modify starEmojis for a starboard", True),
         invoke_without_command=True,
     )
     @commands.has_guild_permissions(manage_channels=True)
-    async def star_emojis(self, ctx: commands.Context) -> None:
+    async def star_emojis(self, ctx: "MyContext") -> None:
         await ctx.send_help(ctx.command)
 
     @star_emojis.command(
-        name="set", help=t_("Sets the starEmojis for a starboard")
+        name="set", help=t_("Sets the starEmojis for a starboard", True)
     )
     @commands.has_guild_permissions(manage_channels=True)
     @commands.bot_has_permissions(embed_links=True)
     @commands.guild_only()
     async def set_star_emojis(
         self,
-        ctx: commands.Context,
+        ctx: "MyContext",
         starboard: converters.Starboard,
         *emojis: converters.Emoji,
     ) -> None:
@@ -679,13 +706,15 @@ class Starboard(commands.Cog):
             )
         )
 
-    @star_emojis.command(name="add", aliases=["a"], help=t_("Add a starEmoji"))
+    @star_emojis.command(
+        name="add", aliases=["a"], help=t_("Add a starEmoji", True)
+    )
     @commands.has_guild_permissions(manage_channels=True)
     @commands.bot_has_permissions(embed_links=True)
     @commands.guild_only()
     async def add_star_emoji(
         self,
-        ctx: commands.Context,
+        ctx: "MyContext",
         starboard: converters.Starboard,
         emoji: converters.Emoji,
     ) -> None:
@@ -716,14 +745,16 @@ class Starboard(commands.Cog):
         )
 
     @star_emojis.command(
-        name="remove", aliases=["r", "del"], help=t_("Removes a starEmoji")
+        name="remove",
+        aliases=["r", "del"],
+        help=t_("Removes a starEmoji", True),
     )
     @commands.has_guild_permissions(manage_channels=True)
     @commands.bot_has_permissions(embed_links=True)
     @commands.guild_only()
     async def remove_star_emoji(
         self,
-        ctx: commands.Context,
+        ctx: "MyContext",
         starboard: converters.Starboard,
         emoji: converters.Emoji,
     ) -> None:
@@ -757,7 +788,7 @@ class Starboard(commands.Cog):
     @star_emojis.command(
         name="clear",
         aliases=["removeAll"],
-        help=t_("Clears all starEmojis for a starboard"),
+        help=t_("Clears all starEmojis for a starboard", True),
     )
     @commands.has_guild_permissions(manage_channels=True)
     @commands.bot_has_permissions(
@@ -765,7 +796,7 @@ class Starboard(commands.Cog):
     )
     @commands.guild_only()
     async def clear_star_emojis(
-        self, ctx: commands.Context, starboard: converters.Starboard
+        self, ctx: "MyContext", starboard: converters.Starboard
     ) -> None:
         if not await menus.Confirm(
             t_("Are you sure you want to clear all emojis for {0}?").format(

@@ -5,6 +5,7 @@ from discord.ext import commands, flags
 
 from app import converters, menus
 from app.classes.bot import Bot
+from app.classes.context import MyContext
 from app.cogs.starboard import starboard_funcs
 from app.i18n import t_
 
@@ -20,13 +21,13 @@ class Fun(commands.Cog):
     @commands.command(
         name="leaderboard",
         aliases=["lb"],
-        help=t_("Shows the servers top 200 users"),
+        help=t_("Shows the servers top 200 users", True),
     )
     @commands.bot_has_permissions(
         embed_links=True, add_reactions=True, read_message_history=True
     )
     @commands.guild_only()
-    async def guild_leaderboard(self, ctx: commands.Context) -> None:
+    async def guild_leaderboard(self, ctx: "MyContext") -> None:
         leaderboard = await fun_funcs.get_guild_leaderboard(
             self.bot, ctx.guild
         )
@@ -66,12 +67,12 @@ class Fun(commands.Cog):
     @commands.command(
         name="rank",
         aliases=["stats"],
-        help=t_("Shows statistics for yourself or another user"),
+        help=t_("Shows statistics for yourself or another user", True),
     )
     @commands.bot_has_permissions(embed_links=True)
     @commands.guild_only()
     async def user_stats(
-        self, ctx: commands.Context, user: discord.Member = None
+        self, ctx: "MyContext", user: discord.Member = None
     ) -> None:
         user: discord.Member = user or ctx.message.author
         sql_user = await self.bot.db.users.get(user.id)
@@ -98,7 +99,7 @@ class Fun(commands.Cog):
         total_stars, total_recv = await self.bot.db.fetchrow(
             """SELECT SUM(stars_given), SUM(stars_received) FROM members
             WHERE user_id=$1""",
-            ctx.author.id,
+            user.id,
         )
 
         embed = (
@@ -136,14 +137,14 @@ class Fun(commands.Cog):
     @flags.add_flag("--starboard", "--sb", type=converters.Starboard)
     @flags.add_flag("--place", type=converters.myint, default=1)
     @flags.command(
-        name="moststarred", help=t_("Shows the most starred messages")
+        name="moststarred", help=t_("Shows the most starred messages", True)
     )
-    @commands.cooldown(1, 3, type=commands.BucketType.user)
+    @commands.cooldown(1, 10, type=commands.BucketType.user)
     @commands.bot_has_permissions(
         embed_links=True, add_reactions=True, read_message_history=True
     )
     @commands.guild_only()
-    async def moststarred(self, ctx: commands.Context, **options) -> None:
+    async def moststarred(self, ctx: "MyContext", **options) -> None:
         starboard_id = (
             options["starboard"].obj.id if options["starboard"] else None
         )
@@ -185,26 +186,29 @@ class Fun(commands.Cog):
         )
         embeds: list[discord.Embed] = []
         text_pages: list[str] = []
-        for m in messages[place : place + 10]:
-            orig = await self.bot.db.messages.get(m["orig_id"])
-            obj = await self.bot.cache.fetch_message(
-                ctx.guild.id,
-                int(orig["channel_id"]),
-                int(orig["id"]),
-            )
-            sql_starboard = await self.bot.db.starboards.get(m["starboard_id"])
-            color = sql_starboard["color"]
-            if not obj:
-                continue
-            e, _ = await starboard_funcs.embed_message(
-                self.bot, obj, color=color
-            )
-            text_pages.append(
-                starboard_funcs.get_plain_text(
-                    sql_starboard, orig, m["points"], ctx.guild
+        async with ctx.typing():
+            for m in messages[place : place + 10]:
+                orig = await self.bot.db.messages.get(m["orig_id"])
+                obj = await self.bot.cache.fetch_message(
+                    ctx.guild.id,
+                    int(orig["channel_id"]),
+                    int(orig["id"]),
                 )
-            )
-            embeds.append(e)
+                sql_starboard = await self.bot.db.starboards.get(
+                    m["starboard_id"]
+                )
+                color = sql_starboard["color"]
+                if not obj:
+                    continue
+                e, _ = await starboard_funcs.embed_message(
+                    self.bot, obj, color=color
+                )
+                text_pages.append(
+                    starboard_funcs.get_plain_text(
+                        sql_starboard, orig, m["points"], ctx.guild
+                    )
+                )
+                embeds.append(e)
 
         if len(embeds) == 0:
             await ctx.send(t_("Nothing to show."))
@@ -224,12 +228,12 @@ class Fun(commands.Cog):
     @flags.command(
         name="random",
         aliases=["explore", "rand"],
-        help=t_("Shows a random starred message from the server"),
+        help=t_("Shows a random starred message from the server", True),
     )
     @commands.cooldown(3, 5, type=commands.BucketType.user)
     @commands.bot_has_permissions(embed_links=True)
     @commands.guild_only()
-    async def random_message(self, ctx: commands.Context, **options):
+    async def random_message(self, ctx: "MyContext", **options):
         author_id = options["by"].id if options["by"] else None
         channel_id = options["in"].id if options["in"] else None
         starboard_id = (
@@ -294,27 +298,27 @@ class Fun(commands.Cog):
         )
         await ctx.send(plain_text, embed=embed, files=attachments)
 
-    # Removed, as it is a copy of the command of another bot. Feel free to
-    # Uncomment if you selfhost the bot.
-    # @commands.command(
-    #    name='starworthy',
-    #    aliases=['worthy'],
-    #    help=t_("Tells you how starworthy a message is"),
-    # )
-    # @commands.guild_only()
-    # async def starworthy(
-    #    self,
-    #    ctx: commands.Context,
-    #    message: converters.GuildMessage
-    # ) -> None:
-    #    r = random.Random(message.id)
-    #    worthiness: float = r.randrange(0, 100)
-    #    await ctx.send(f"That message is {worthiness}% starworthy")
+    @commands.command(
+        name="starworthy",
+        aliases=["worthy"],
+        help=t_("Tells you how starworthy a message is", True),
+    )
+    @commands.guild_only()
+    async def starworthy(
+        self, ctx: "MyContext", message: converters.GuildMessage
+    ) -> None:
+        r = random.Random(message.id)
+        worthiness: float = r.randrange(0, 100)
+        await ctx.send(
+            t_("That message is {}% starworthy.").format(worthiness)
+        )
 
-    @commands.command(name="save", help=t_("Saves a message to your DM's"))
+    @commands.command(
+        name="save", help=t_("Saves a message to your DM's", True)
+    )
     @commands.guild_only()
     async def save(
-        self, ctx: commands.Context, message: converters.GuildMessage
+        self, ctx: "MyContext", message: converters.GuildMessage
     ) -> None:
         orig_sql_message = await starboard_funcs.orig_message(
             self.bot, message.id

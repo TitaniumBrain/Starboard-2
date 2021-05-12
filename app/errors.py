@@ -3,7 +3,6 @@ from typing import Union
 
 import discord
 from discord.ext import commands
-from discord.ext.commands.errors import NoPrivateMessage
 
 from app.i18n import t_
 
@@ -28,17 +27,17 @@ class XpRoleNotFound(commands.BadArgument):
 
 class PermRoleAlreadyExists(commands.BadArgument):
     def __init__(self, role: str, group: str):
-        message = t_("{0} is already a PermRole on the PermGroup {1}.").format(
-            role, group
-        )
+        message = t_(
+            "**{0}** is already a PermRole on the PermGroup **{1}**."
+        ).format(role, group)
         super().__init__(message=message)
 
 
 class PermRoleNotFound(commands.BadArgument):
     def __init__(self, role: str, group: str):
-        message = t_("{0} is not a PermRole on the PermGroup {1}.").format(
-            role, group
-        )
+        message = t_(
+            "**{0}** is not a PermRole on the PermGroup **{1}**."
+        ).format(role, group)
         super().__init__(message=message)
 
 
@@ -60,7 +59,7 @@ class GroupNameAlreadyExists(commands.BadArgument):
 
 class NotAnEmoji(commands.BadArgument):
     def __init__(self, arg: str):
-        message = t_("`{0}` is not an emoji.").format(arg)
+        message = t_("{0} is not an emoji.").format(arg)
         super().__init__(message=message)
 
 
@@ -83,6 +82,12 @@ class NotStarboard(commands.BadArgument):
 class NotCommand(commands.BadArgument):
     def __init__(self, arg: str):
         message = t_("`{0}` is not a valid command.").format(arg)
+        super().__init__(message=message)
+
+
+class CommandCategoryNotFound(commands.BadArgument):
+    def __init__(self, arg: str):
+        message = t_("`{0}` is not a valid command or category.").format(arg)
         super().__init__(message=message)
 
 
@@ -195,7 +200,7 @@ class AlreadyQuickAction(commands.BadArgument):
 
 class AlreadyPrefix(commands.BadArgument):
     def __init__(self, arg: str):
-        message = t_("`{0}` is already a prefix.").format(arg)
+        message = t_("{0} is already a prefix.").format(arg)
         super().__init__(message=message)
 
 
@@ -211,7 +216,7 @@ class CannotBeStarboardAndAutostar(commands.BadArgument):
 class MessageNotFound(commands.BadArgument):
     def __init__(self, argument: str):
         self.argument = argument
-        super().__init__(t_("Message `{0}` not found.").format(argument))
+        super().__init__(t_("Message {0} not found.").format(argument))
 
     @classmethod
     def from_original(cls, exc: commands.MessageNotFound):
@@ -222,7 +227,7 @@ class MissingRequiredArgument(commands.UserInputError):
     def __init__(self, param: inspect.Parameter):
         self.param = param
         super().__init__(
-            t_("`{0}` is a required argument that you didn't pass.").format(
+            t_("**{0}** is a required argument that you didn't pass.").format(
                 param.name
             )
         )
@@ -235,7 +240,7 @@ class MissingRequiredArgument(commands.UserInputError):
 class ChannelNotFound(commands.BadArgument):
     def __init__(self, argument: str):
         self.argument = argument
-        super().__init__(t_("Channel `{0}` not found.").format(argument))
+        super().__init__(t_("Channel {0} not found.").format(argument))
 
     @classmethod
     def from_original(cls, exc: commands.ChannelNotFound):
@@ -255,7 +260,7 @@ class ChannelNotReadable(commands.BadArgument):
 class RoleNotFound(commands.BadArgument):
     def __init__(self, argument: str):
         self.arugment = argument
-        super().__init__(t_("Role `{0}` not found.").format(argument))
+        super().__init__(t_("Role {0} not found.").format(argument))
 
     @classmethod
     def from_original(cls, exc: commands.RoleNotFound):
@@ -265,7 +270,7 @@ class RoleNotFound(commands.BadArgument):
 class UserNotFound(commands.BadArgument):
     def __init__(self, argument: str):
         self.argument = argument
-        super().__init__(t_("User `{0}` not found.").format(argument))
+        super().__init__(t_("User {0} not found.").format(argument))
 
     @classmethod
     def from_original(cls, exc: commands.UserNotFound):
@@ -362,6 +367,15 @@ class NoPrivateMessages(commands.CheckFailure):
         return cls()
 
 
+class NotOwner(commands.CheckFailure):
+    def __init__(self):
+        super().__init__(t_("This command can only be used by the bot owner."))
+
+    @classmethod
+    def from_original(cls, exc: commands.NotOwner):
+        return cls()
+
+
 ERROR_MAP = {
     "MissingRequiredArgument": MissingRequiredArgument,
     "MessageNotFound": MessageNotFound,
@@ -372,7 +386,8 @@ ERROR_MAP = {
     "CommandOnCooldown": CommandOnCooldown,
     "ExpectedClosingQuoteError": ExpectedClosingQuoteError,
     "BotMissingPermissions": BotMissingPermissions,
-    "NoPrivateMessages": NoPrivateMessage,
+    "NoPrivateMessages": NoPrivateMessages,
+    "NotOwner": NotOwner,
 }
 
 

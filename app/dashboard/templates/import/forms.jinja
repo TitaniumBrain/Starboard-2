@@ -1,0 +1,54 @@
+{% macro input_number(label, id, min, max, value) %}
+
+    <div class="form-control grid grid-cols-3">
+        <label class="label col-span-2">
+            <span class="label-text">{{ label }}</span>
+        </label>
+        <input type="number" min="{{ min }}" max="{{ max }}" id="{{ id }}" class="input input-sm input-bordered col-span-1" value="{{ value }}">
+    </div>
+
+{% endmacro %}
+
+{% macro input_toggle(label, id, value) %}
+    <div class="form-control">
+        <label class="cursor-pointer label">
+            <span class="label-text">{{ label }}</span>
+            <div>
+                <input type="checkbox" {% if value %}checked="checked"{% endif %} class="toggle toggle-primary" id="{{ id }}">
+                <span class="toggle-mark"></span>
+            </div>
+        </label>
+    </div>
+{% endmacro %}
+
+{% macro input_text_long(label, id, value) %}
+    <div class="form-control">
+        <label class="label">
+            <span class="label-text">{{ label }}</span>
+        </label>
+        <input type="text" class="input input-sm input-bordered" value="{{ value }}" id="{{ id }}">
+    </div>
+{% endmacro %}
+
+{% macro input_text(label, id, value) %}
+    <div class="form-control grid grid-cols-3 items-center">
+        <label class="label">
+            <span class="label-text">{{ label }}</span>
+        </label>
+        <input type="text" class="input input-sm input-bordered col-span-2" value="{{ value }}" id="{{ id }}" name="{{ id }}">
+    </div>
+{% endmacro %}
+
+{% macro input_color(label, id, value) %}
+    <div class="form-control grid grid-cols-2 items-center">
+        <label class="label col-span-1">
+            <span class="label-text">{{ label }}</span>
+        </label>
+        <div class="flex">
+            <div class="flex-1"></div>
+            <div class="color-input-wrapper col-span-1">
+                <input type="color" id="{{ id }}" value="{{ value }}" class="color-input">
+            </div>
+        </div>
+    </div>
+{% endmacro %}

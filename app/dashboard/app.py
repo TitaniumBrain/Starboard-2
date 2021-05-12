@@ -4,18 +4,21 @@ from typing import Optional, Union
 import dotenv
 import humanize
 from quart import Quart, redirect, render_template, request, url_for
+from quart.helpers import flash
+from quart_csrf import CSRFProtect
 from quart_discord import AccessDenied, DiscordOAuth2Session, Unauthorized
 from quart_discord.utils import requires_authorization
 
 import config
 from app.classes.ipc_connection import WebsocketConnection
-from app.database.database import Database
+from app.dashboard.db_wrapper import Wrapper
 
 from . import app_config
 
 dotenv.load_dotenv()
 
 app = Quart(__name__)
+CSRFProtect(app)
 
 app.secret_key = os.getenv("QUART_KEY")
 app.config["DISCORD_CLIENT_ID"] = config.BOT_ID
@@ -25,12 +28,10 @@ app.config["DISCORD_BOT_TOKEN"] = os.getenv("TOKEN")
 
 app.config["STATS"] = {}
 
-app.config["DATABASE"] = Database(
-    os.getenv("DB_NAME"), os.getenv("DB_USER"), os.getenv("DB_PASSWORD")
-)
 app.config["WEBSOCKET"] = None
 
 discord = DiscordOAuth2Session(app)
+db = Wrapper()
 
 
 async def get_guild(guild_id: int):
@@ -43,9 +44,19 @@ async def get_guild(guild_id: int):
     return guild
 
 
-async def handle_login(next: str = ""):
+async def get_guild_channels(guild_id: int) -> dict[str, dict[int, str]]:
+    channels: dict[str, dict[int, str]] = {}
+    for c in await app.config["WEBSOCKET"].send_command(
+        "guild_channels", {"guild_id": guild_id}, expect_resp=True
+    ):
+        channels.update(c["data"])
+    return channels
+
+
+async def handle_login(after_login: str = ""):
     return await discord.create_session(
-        scope=["identify", "guilds"], data={"type": "user", "next": next}
+        scope=["identify", "guilds"],
+        data={"type": "user", "next": after_login},
     )
 
 
@@ -74,7 +85,12 @@ async def handle_command(msg: dict) -> Optional[Union[dict, str]]:
     return resp
 
 
-def bot_stats() -> tuple[str]:
+def bot_stats() -> tuple[str, str, str]:
+    return (
+        humanize.intcomma(7124),
+        humanize.intcomma(3579381),
+        humanize.intcomma(3179750),
+    )
     guilds = humanize.intword(
         sum([s["guilds"] for _, s in app.config["STATS"].items()])
     )
@@ -104,8 +120,7 @@ async def does_share(guild) -> bool:
     except Exception as e:
         print(e)
         return False
-    print(resp)
-    return resp
+    return any([s["data"] for s in resp])
 
 
 # Jump Routes
@@ -208,8 +223,128 @@ async def server_starboards(guild_id: int):
     if not await does_share(guild):
         return await handle_invite(guild.id)
 
+    starboards = [dict(s) for s in await db.get_starboards(guild_id)]
+    names = await app.config["WEBSOCKET"].send_command(
+        "channel_names",
+        {"channel_ids": [int(s["id"]) for s in starboards]},
+        expect_resp=True,
+    )
+    name_dict = {}
+    for c in names:  # each cluster returns it's own response
+        for cid, name in c["data"].items():
+            if name:
+                name_dict[int(cid)] = name
+
+    categories = await get_guild_channels(guild_id)
+
+    for s in starboards:
+        s["name"] = name_dict[int(s["id"])]
+
     return await render_template(
-        "dashboard/server/starboards.jinja", user=user, guild=guild
+        "dashboard/server/starboard/list.jinja",
+        user=user,
+        guild=guild,
+        starboards=starboards,
+        categories=categories,
+    )
+
+
+@app.route(
+    "/dashboard/servers/<int:guild_id>/starboards/create/",
+    methods=["POST"],
+)
+@requires_authorization
+async def create_starboard(guild_id: int):
+    form = await request.form
+    channel_id = form["channel_id"]
+
+    guild = await get_guild(guild_id)
+
+    if not guild or not can_manage(guild):
+        return redirect(url_for("servers"))
+
+    if not await does_share(guild):
+        return await handle_invite(guild.id)
+
+    _channels = await get_guild_channels(guild.id)
+    channels = []
+    for _, cat in _channels.items():
+        for k, _ in cat.items():
+            channels.append(k)
+
+    if channel_id not in channels:
+        await flash("Channel ID was not valid.", "error")
+        return redirect(url_for("server_starboards", guild_id=guild_id))
+
+    try:
+        await db.db.starboards.create(channel_id, guild_id)
+    except Exception as e:
+        await flash(str(e), "error")
+        return redirect(url_for("server_starboards", guild_id=guild_id))
+
+    return redirect(
+        url_for("manage_starboard", guild_id=guild_id, starboard_id=channel_id)
+    )
+
+
+@app.route(
+    "/dashboard/servers/<int:guild_id>/starboards/<int:starboard_id>/delete/",
+    methods=["POST"],
+)
+@requires_authorization
+async def delete_starboard(guild_id: int, starboard_id: int):
+    guild = await get_guild(guild_id)
+    if not guild or not can_manage(guild):
+        return redirect(url_for("servers"))
+
+    if not await does_share(guild):
+        return await handle_invite(guild.id)
+
+    starboard_ids = [int(s["id"]) for s in await db.get_starboards(guild_id)]
+    if starboard_id not in starboard_ids:
+        return redirect(url_for("server_starboards", guild_id=guild_id))
+
+    await db.db.starboards.delete(starboard_id)
+    await flash("Starboard deleted.")
+
+    return redirect(url_for("server_starboards", guild_id=guild_id))
+
+
+@app.route("/dashboard/servers/<int:guild_id>/starboards/<int:starboard_id>/")
+@requires_authorization
+async def manage_starboard(guild_id: int, starboard_id: int):
+    user = await discord.fetch_user()
+    guild = await get_guild(guild_id)
+    if not guild or not can_manage(guild):
+        return redirect(url_for("servers"))
+
+    if not await does_share(guild):
+        return await handle_invite(guild.id)
+
+    starboard_ids = [int(s["id"]) for s in await db.get_starboards(guild_id)]
+    if starboard_id not in starboard_ids:
+        return redirect(url_for("servers"))
+
+    starboard = dict(await db.get_starboard(starboard_id))
+    for c in await app.config["WEBSOCKET"].send_command(
+        "channel_names",
+        {"channel_ids": [int(starboard["id"])]},
+        expect_resp=True,
+    ):
+        if c["data"][str(starboard["id"])]:
+            starboard["name"] = c["data"][str(starboard["id"])]
+            break
+    else:
+        starboard["name"] = "deleted"
+
+    categories = await get_guild_channels(guild.id)
+
+    return await render_template(
+        "dashboard/server/starboard/manage.jinja",
+        user=user,
+        guild=guild,
+        starboard=starboard,
+        categories=categories,
     )
 
 
@@ -226,7 +361,7 @@ async def server_autostar(guild_id: int):
         return await handle_invite(guild.id)
 
     return await render_template(
-        "dashboard/server/autostar.jinja", user=user, guild=guild
+        "dashboard/server/autostar/list.jinja", user=user, guild=guild
     )
 
 
@@ -237,13 +372,14 @@ async def index():
         user = await discord.fetch_user()
     except Unauthorized:
         user = None
-    guilds, members = bot_stats()
+    guilds, members, messages = bot_stats()
     return await render_template(
         "home.jinja",
         user=user,
         sections=app_config.SECTIONS,
         members=members,
         guilds=guilds,
+        messages=messages,
     )
 
 
@@ -254,6 +390,16 @@ async def premium():
     except Unauthorized:
         user = None
     return await render_template("premium.jinja", user=user)
+
+
+# Error Routes
+@app.errorhandler(404)
+async def err404(err):
+    try:
+        user = await discord.fetch_user()
+    except Unauthorized:
+        user = None
+    return await render_template("error/404.jinja", user=user)
 
 
 # Api routes
@@ -300,7 +446,7 @@ async def handle_donate_event():
 # Other
 @app.errorhandler(Unauthorized)
 async def handle_unauthorized(e):
-    return await handle_login(next=request.path)
+    return await handle_login(request.path)
 
 
 @app.errorhandler(AccessDenied)
@@ -311,10 +457,9 @@ async def handle_access_denied(e):
 @app.before_first_request
 async def before_first_request():
     try:
-        await app.config["DATABASE"].init_database()
+        await db.init()
     except Exception as e:
-        print("Unable to connect to database")
-        print(e)
+        print("Unable to connect to db:", e)
     try:
         app.config["WEBSOCKET"] = WebsocketConnection(
             "Dashboard", handle_command

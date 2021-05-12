@@ -4,6 +4,7 @@ import discord
 from discord.ext import commands
 
 from app import converters, errors
+from app.classes.context import MyContext
 from app.i18n import t_
 
 if typing.TYPE_CHECKING:
@@ -17,7 +18,7 @@ class AwardRoles(commands.Cog):
     @commands.group(
         name="xproles",
         aliases=["xpr"],
-        help=t_("View and manage XPRoles for your server."),
+        help=t_("View and manage XPRoles for your server.", True),
         invoke_without_command=True,
     )
     @commands.has_guild_permissions(manage_roles=True)
@@ -25,7 +26,7 @@ class AwardRoles(commands.Cog):
         embed_links=True,
     )
     @commands.guild_only()
-    async def xproles(self, ctx: commands.Context):
+    async def xproles(self, ctx: "MyContext"):
         _xproles = await self.bot.db.xproles.get_many(ctx.guild.id)
         if len(_xproles) == 0:
             await ctx.send(t_("This server has no XP Roles."))
@@ -43,13 +44,15 @@ class AwardRoles(commands.Cog):
         )
         await ctx.send(embed=embed)
 
-    @xproles.command(name="add", aliases=["a"], help=t_("Adds an XPRole"))
+    @xproles.command(
+        name="add", aliases=["a"], help=t_("Adds an XPRole", True)
+    )
     @commands.has_guild_permissions(manage_roles=True)
     @commands.guild_only()
     async def add_xprole(
         self,
-        ctx: commands.Context,
-        role: discord.Role,
+        ctx: "MyContext",
+        role: converters.Role,
         required: converters.myint,
     ):
         xpr = await self.bot.db.xproles.get(role.id)
@@ -60,13 +63,11 @@ class AwardRoles(commands.Cog):
         await ctx.send(t_("Created XPRole **{0}**.").format(role.name))
 
     @xproles.command(
-        name="remove", aliases=["r"], help=t_("Removes an XpRole")
+        name="remove", aliases=["r"], help=t_("Removes an XpRole", True)
     )
     @commands.has_guild_permissions(manage_roles=True)
     @commands.guild_only()
-    async def remove_xprole(
-        self, ctx: commands.Context, xprole: converters.XPRole
-    ):
+    async def remove_xprole(self, ctx: "MyContext", xprole: converters.XPRole):
         await self.bot.db.xproles.delete(xprole.obj.id)
         await ctx.send(
             t_("Deleted the XPRole **{0}**.").format(xprole.obj.name)
@@ -75,13 +76,13 @@ class AwardRoles(commands.Cog):
     @xproles.command(
         name="set",
         aliases=["required"],
-        help=t_("Sets the ammount of xp needed to gain an XPRole"),
+        help=t_("Sets the ammount of xp needed to gain an XPRole", True),
     )
     @commands.has_guild_permissions(manage_roles=True)
     @commands.guild_only()
     async def set_xprole_required(
         self,
-        ctx: commands.Context,
+        ctx: "MyContext",
         xprole: converters.XPRole,
         required: converters.myint,
     ):

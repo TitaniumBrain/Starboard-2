@@ -5,30 +5,100 @@ import traceback
 from contextlib import redirect_stdout
 
 import discord
-from asyncpg.exceptions import InterfaceError
 from discord.ext import commands
+from jishaku.cog import OPTIONAL_FEATURES, STANDARD_FEATURES
+from jishaku.exception_handling import ReplResponseReactor
+from jishaku.features.baseclass import Feature
+
+from app.classes.context import MyContext
 
 from ... import checks, menus, utils
 from ...classes.bot import Bot
 
 
-class Owner(commands.Cog):
-    "Owner-only commands"
+class Rollback(Exception):
+    pass
 
-    def __init__(self, bot: Bot) -> None:
-        self.bot = bot
 
-    @commands.command()
-    @checks.is_owner()
-    async def evall(self, ctx, *, body: str):
-        """Evaluates code on all clusters and returns their response"""
-        _msgs = await self.bot.websocket.send_command(
-            "eval", {"content": body}, expect_resp=True
+class RunSqlConverter(commands.Converter):
+    async def convert(self, ctx: "MyContext", arg: str):
+        try:
+            arg = int(arg)
+        except ValueError:
+            try:
+                prev_arg = int(ctx.args[-1])
+            except (IndexError, ValueError, TypeError):
+                prev_arg = None
+            else:
+                ctx.args.pop(-1)
+            return (prev_arg or 1, arg)
+        else:
+            return arg
+
+
+class Owner(*OPTIONAL_FEATURES, *STANDARD_FEATURES):
+    """Owner Only Commands"""
+
+    @Feature.Command(
+        name="runpg",
+        aliases=["timeit"],
+        help="Times postgres queries. Rolls back any changes.",
+    )
+    async def jsk_runpg(self, ctx: "MyContext", *to_run: RunSqlConverter):
+        results: list[str] = []
+        times: list[float] = []
+
+        try:
+            async with ctx.bot.db.pool.acquire() as con:
+                async with con.transaction():
+                    async with ReplResponseReactor(ctx.message):
+                        with self.submit(ctx):
+                            for count, sql in to_run:
+                                _times: list[float] = []
+                                r = None
+                                for _ in range(0, count):
+                                    s = time.perf_counter()
+                                    r = await con.fetch(sql)
+                                    _times.append(time.perf_counter() - s)
+                                results.append(r if r else [None])
+                                times.append(sum(_times) / len(_times))
+                    raise Rollback
+        except Rollback:
+            pass
+
+        message = "\n".join(
+            [
+                f"Query {n} to {round(t*1000, 3)}ms.\n - "
+                + "\n - ".join([str(r) for r in results[n]])
+                for n, t in enumerate(times)
+            ]
         )
+        paginator = commands.Paginator(max_size=1985)
+        for line in message.split("\n"):
+            paginator.add_line(line)
+        pages = [
+            p + f"{n}/{len(paginator.pages)}"
+            for n, p in enumerate(paginator.pages, 1)
+        ]
+        await menus.Paginator(text=pages, delete_after=True).start(ctx)
 
-        msgs = [f"```py\n{m['author']}: {m['data']}\n```" for m in _msgs]
+    @Feature.Command(name="evall", help="Runs code on all clusters.")
+    async def evall(self, ctx, *, body: str):
+        async with ReplResponseReactor(ctx.message):
+            with self.submit(ctx):
+                _msgs = await self.bot.websocket.send_command(
+                    "eval", {"content": body}, expect_resp=True
+                )
 
-        await ctx.send(" ".join(msgs))
+        msgs = "\n".join([f"{m['author']}: {m['data']}" for m in _msgs])
+        pag = commands.Paginator(max_size=1985, prefix="```py")
+        for line in msgs.split("\n"):
+            pag.add_line(line)
+        pages = [
+            p + f"{n}/{len(pag.pages)}" for n, p in enumerate(pag.pages, 1)
+        ]
+
+        await menus.Paginator(text=pages, delete_after=True).start(ctx)
 
     @commands.command(name="eval")
     @checks.is_owner()
@@ -81,7 +151,7 @@ class Owner(commands.Cog):
     @commands.command(name="sqltimes")
     @checks.is_owner()
     async def get_sql_times(
-        self, ctx: commands.Context, sort_by: str = "total"
+        self, ctx: "MyContext", sort_by: str = "total"
     ) -> None:
         """Shows stats on SQL queries"""
         if sort_by not in ["avg", "total", "exec"]:
@@ -114,73 +184,41 @@ class Owner(commands.Cog):
         times.sort(key=sorter, reverse=True)
         for sql, exec_time in times:
             pag.add_line(
-                f"```{sql}```"
+                f"```sql\n{sql}```"
                 f"{utils.ms(exec_time[0])} MS AVG | "
                 f"{round(exec_time[1], 2)} SECONDS TOTAL | "
                 f"{exec_time[2]} EXECUTIONS\n"
             )
 
         await menus.Paginator(
-            embeds=[
-                discord.Embed(
-                    title="SQL Times",
-                    description=p,
-                    color=self.bot.theme_color,
-                )
-                for p in pag.pages
+            text=[
+                p + f"{n}/{len(pag.pages)}" for n, p in enumerate(pag.pages, 1)
             ],
             delete_after=True,
         ).start(ctx)
 
-    @commands.command(name="restart")
+    @commands.command(name="reconnect")
     @checks.is_owner()
-    async def restart_bot(self, ctx: commands.Context) -> None:
+    async def reconnect_bot(self, ctx: "MyContext") -> None:
         """Restars all clusters"""
-        if not await menus.Confirm("Restart all clusters?").start(ctx):
+        if not await menus.Confirm("Reconnect all clusters?").start(ctx):
             await ctx.send("Cancelled")
             return
 
-        await ctx.send("Restarting...")
-        cmd: commands.Command = self.bot.get_command("evall")
-        await ctx.invoke(cmd, body="await bot.logout()")
+        await ctx.send("Reconnecting...")
+        await self.bot.websocket.send_command("restart", {}, expect_resp=False)
 
-    @commands.command(
-        name="runpg",
-        aliases=["timepg", "timeit", "runtime"],
-        help="Time postgres queries",
-        description="Time postgres queries",
-    )
+    @commands.command(name="restart")
     @checks.is_owner()
-    async def time_postgres(self, ctx: commands.Context, *args: list) -> None:
-        result = "None"
-        times = 1
-        runtimes = []
-
-        try:
-            async with self.bot.db.pool.acquire() as con:
-                async with con.transaction():
-                    for a in args:
-                        a = "".join(a)
-                        try:
-                            times = int(a)
-                        except Exception:
-                            start = time.time()
-                            for i in range(0, times):
-                                try:
-                                    result = await con.fetch(a)
-                                except Exception as e:
-                                    await ctx.send(e)
-                                    raise Exception("rollback")
-                            runtimes.append((time.time() - start) / times)
-                            times = 1
-                    raise Exception("Rollback")
-        except (Exception, InterfaceError):
-            pass
-
-        for x, r in enumerate(runtimes):
-            await ctx.send(f"Query {x} took {round(r*1000, 2)} ms")
-        await ctx.send(result[0:500])
+    async def restart_bot(self, ctx: "MyContext"):
+        if not await menus.Confirm("**Restart** the bot?").start(ctx):
+            await ctx.send("Cancelled.")
+            return
+        await ctx.send("Restarting...")
+        await self.bot.websocket.send_command(
+            "shutdown", {}, expect_resp=False
+        )
 
 
 def setup(bot: Bot) -> None:
-    bot.add_cog(Owner(bot))
+    bot.add_cog(Owner(bot=bot))

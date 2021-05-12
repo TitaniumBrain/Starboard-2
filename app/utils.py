@@ -10,6 +10,7 @@ import discord
 from discord import RequestsWebhookAdapter, Webhook
 from discord.ext import commands
 
+from app.classes.context import MyContext
 from app.i18n import t_
 
 if typing.TYPE_CHECKING:
@@ -37,6 +38,23 @@ def timeout(seconds=10, error_message=os.strerror(errno.ETIME)):
 
 
 # Functions
+async def get_prefix(
+    bot: "Bot", message: discord.Message, when_mentioned: bool = True
+) -> list[str]:
+    if message.guild:
+        guild = await bot.db.guilds.get(message.guild.id)
+        if not guild:
+            prefixes = ["sb!"]
+        else:
+            prefixes = guild["prefixes"]
+    else:
+        prefixes = ["sb!"]
+    prefixes = list(sorted(prefixes, key=len, reverse=True))
+    if when_mentioned:
+        return commands.when_mentioned_or(*prefixes)(bot, message)
+    return prefixes
+
+
 def webhooklog(content: str, url: Optional[str]) -> None:
     if not url:
         return
@@ -152,7 +170,7 @@ def convert_emojis(
     result: list[str] = []
     for e in emojis:
         eid = None
-        if type(e) is not discord.Emoji:
+        if not isinstance(e, discord.Emoji):
             try:
                 eid = int(e)
             except ValueError:
@@ -179,7 +197,7 @@ def pretty_channel_string(channels: list[int], guild: discord.Guild) -> str:
     return ", ".join([f"<#{c}>" for c in channels]) or t_("None")
 
 
-def clean_prefix(ctx: commands.Context):
+def clean_prefix(ctx: "MyContext"):
     """:class:`str`: The cleaned up invoke prefix. i.e. mentions
     are ``@name`` instead of ``<@id>``."""
     user = ctx.guild.me if ctx.guild else ctx.bot.user
@@ -191,3 +209,9 @@ def clean_prefix(ctx: commands.Context):
     return pattern.sub(
         "@%s" % user.display_name.replace("\\", r"\\"), ctx.prefix
     )
+
+
+def clean_prefix_no_ctx(prefix: str, me: Union[discord.Member, discord.User]):
+    pattern = re.compile(f"<@!?{me.id}>")
+    display_name = me.display_name.replace("\\", r"\\")
+    return pattern.sub(f"@{display_name}", prefix)

@@ -7,17 +7,21 @@ import textwrap
 import traceback
 import typing
 from contextlib import asynccontextmanager, redirect_stdout
-from typing import Any, Optional, Union
+from typing import Any, Optional, SupportsIndex, Union
 
 import aiohttp
 import discord
+import uvloop
 from discord.ext import commands
 from discord_slash import SlashCommand
 from dotenv import load_dotenv
 from pretty_help import PrettyHelp
 
-from app import i18n
+import config
+from app import i18n, utils
+from app.classes.context import MyContext
 from app.classes.ipc_connection import WebsocketConnection
+from app.i18n.i18n import t_
 from app.menus import HelpMenu
 
 from ..database.database import Database
@@ -26,6 +30,39 @@ if typing.TYPE_CHECKING:
     from app.cogs.cache.cache import Cache
 
 load_dotenv()
+uvloop.install()
+
+
+class LimitedList:
+    def __init__(self, limit: int = None):
+        self._values: list[Any] = []
+        self.limit = limit
+
+    def append(self, value: Any):
+        self._values.append(value)
+        if self.limit and self.limit < len(self):
+            self._values = self._values[-self.limit :]
+
+    def pop(self, index: int = 0):
+        return self._values.pop(index)
+
+    def remove(self, value: Any):
+        return self._values.remove(value)
+
+    def __len__(self):
+        return self._values.__len__()
+
+    def __iter__(self):
+        return self._values.__iter__()
+
+    def __repr__(self):
+        return self._values.__repr__()
+
+    def __str__(self):
+        return self._values.__str__()
+
+    def __getitem__(self, i_or_s: Union[SupportsIndex, slice]):
+        return self._values.__getitem__(i_or_s)
 
 
 class Bot(commands.AutoShardedBot):
@@ -41,16 +78,27 @@ class Bot(commands.AutoShardedBot):
         self._last_result = None
         self.stats = {}
         self.locale_cache = {}
+        self.to_cleanup: dict[int, LimitedList] = {}
 
         self.cache: "Cache"
 
         super().__init__(
             help_command=PrettyHelp(
                 color=self.theme_color,
-                command_attrs={"name": "commands", "hidden": True},
+                command_attrs={
+                    "name": "_commands",
+                    "hidden": True,
+                    "enabled": False,
+                },
                 menu=HelpMenu,
+                ending_note=t_(
+                    "Type s-commands command for more info on a command.\n"
+                    "You can also type s-commands category for more info on "
+                    "a category.",
+                    True,
+                ),
             ),
-            command_prefix=self._prefix_callable,
+            command_prefix=utils.get_prefix,
             **kwargs,
             loop=loop,
             activity=discord.Activity(
@@ -91,6 +139,21 @@ class Bot(commands.AutoShardedBot):
             raise e from e
         else:
             sys.exit(-1)
+
+    async def is_owner(self, user: discord.User):
+        if user.id in config.OWNER_IDS:
+            return True
+        return False
+
+    async def get_context(self, message, *, cls=MyContext):
+        return await super().get_context(message, cls=cls)
+
+    def register_cleanup(self, message: discord.Message):
+        if not message.guild:
+            return
+        if message.guild.id not in self.to_cleanup:
+            self.to_cleanup[message.guild.id] = LimitedList(100)
+        self.to_cleanup[message.guild.id].append(message.id)
 
     async def set_session(self):
         self.session = aiohttp.ClientSession()
@@ -135,20 +198,8 @@ class Bot(commands.AutoShardedBot):
         _, error, _ = sys.exc_info()
         self.dispatch("log_error", "Error", error, args, kwargs)
 
-    async def _prefix_callable(
-        self, bot, message: discord.Message
-    ) -> list[str]:
-        if message.guild:
-            guild = await self.db.guilds.get(message.guild.id)
-            if not guild:
-                prefixes = ["sb!"]
-            else:
-                prefixes = guild["prefixes"]
-        else:
-            prefixes = ["sb!"]
-        return prefixes + [f"<@{self.user.id}> ", f"<@!{self.user.id}> "]
-
-    def cleanup_code(self, content):
+    @staticmethod
+    def cleanup_code(content):
         """Automatically removes code blocks from the code."""
         # remove ```py\n```
         if content.startswith("```") and content.endswith("```"):
@@ -185,7 +236,7 @@ class Bot(commands.AutoShardedBot):
                 ret = await func()
         except Exception:
             value = stdout.getvalue()
-            f"{value}{traceback.format_exc()}"
+            return f"{value}{traceback.format_exc()}"
         else:
             value = stdout.getvalue()
 
@@ -200,14 +251,16 @@ class Bot(commands.AutoShardedBot):
 
     async def handle_websocket_command(
         self, msg: dict[str, Any]
-    ) -> Optional[Union[list, str, bool]]:
+    ) -> Optional[Union[list, str, bool, dict[Any, Any]]]:
         cmd = msg["name"]
         data = msg["data"]
 
-        ret: Optional[Union[list, str]] = None
+        ret: Optional[Union[list, str, dict[Any, Any]]] = None
 
-        if cmd == "ping":
-            ret = "pong"
+        if cmd == "restart":
+            await self.close()
+        elif cmd == "shutdown":
+            sys.exit(0)
         elif cmd == "eval":
             content = data["content"]
             ret = str(await self.exec(content))
@@ -226,6 +279,20 @@ class Bot(commands.AutoShardedBot):
                 ret = True
             else:
                 ret = False
+        elif cmd == "channel_names":
+            ret = {}
+            for cid in data["channel_ids"]:
+                obj = self.get_channel(cid)
+                if obj:
+                    ret[cid] = obj.name
+        elif cmd == "guild_channels":
+            guild = self.get_guild(data["guild_id"])
+            ret = {}
+            if guild:
+                for c in guild.text_channels:
+                    key = str(c.category or "No Category")
+                    ret.setdefault(key, {})
+                    ret[key][c.id] = c.name
         elif cmd == "donate_event":
             self.dispatch("donatebot_event", data["data"], data["auth"])
         elif cmd == "update_prem_roles":

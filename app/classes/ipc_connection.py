@@ -54,7 +54,7 @@ class WebsocketConnection:
             raise
 
         if expect_resp:
-            await asyncio.sleep(0.25)
+            await asyncio.sleep(0.1)
             return self.callbacks.pop(to_send["callback"])
         return None
 
@@ -116,7 +116,8 @@ class WebsocketConnection:
         self.current_callback += 1
         return str(self.current_callback)
 
-    def _done_callback(self, task: asyncio.Task):
+    @staticmethod
+    def _done_callback(task: asyncio.Task):
         try:
             task.result()
         except (SystemExit, asyncio.CancelledError):

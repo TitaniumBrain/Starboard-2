@@ -57,10 +57,33 @@ CLUSTER_NAMES = (
 NAMES = iter(CLUSTER_NAMES)
 
 
+def get_shard_count():
+    if SHARDS != 0:
+        log.info(f"Launching with {SHARDS} shards")
+        return SHARDS
+    data = requests.get(
+        "https://discordapp.com/api/v7/gateway/bot",
+        headers={
+            "Authorization": "Bot " + TOKEN,
+            "User-Agent": (
+                "DiscordBot (https://github.com/Rapptz/discord.py "
+                "1.3.0a) Python/3.7 aiohttp/3.6.1"
+            ),
+        },
+    )
+    data.raise_for_status()
+    content = data.json()
+    log.info(
+        f"Successfully got shard count of {content['shards']}"
+        f" ({data.status_code, data.reason})"
+    )
+    return content["shards"]
+
+
 class Launcher:
     def __init__(self, loop):
         log.info("Hello, world!")
-        self.cluster_queue = []
+        self.cluster_queue: list["Cluster"] = []
         self.clusters = []
 
         self.fut = None
@@ -70,36 +93,15 @@ class Launcher:
         self.keep_alive = None
         self.init = time.perf_counter()
 
-    def get_shard_count(self):
-        if SHARDS != 0:
-            log.info(f"Launching with {SHARDS} shards")
-            return SHARDS
-        data = requests.get(
-            "https://discordapp.com/api/v7/gateway/bot",
-            headers={
-                "Authorization": "Bot " + TOKEN,
-                "User-Agent": (
-                    "DiscordBot (https://github.com/Rapptz/discord.py "
-                    "1.3.0a) Python/3.7 aiohttp/3.6.1"
-                ),
-            },
-        )
-        data.raise_for_status()
-        content = data.json()
-        log.info(
-            f"Successfully got shard count of {content['shards']}"
-            f" ({data.status_code, data.reason})"
-        )
-        return content["shards"]
-
     def start(self):
-        self.fut = asyncio.ensure_future(self.startup(), loop=self.loop)
+        self.loop.run_until_complete(self.startup())
 
         try:
-            self.loop.run_forever()
+            self.loop.run_until_complete(self.rebooter())
         except KeyboardInterrupt:
-            self.loop.run_until_complete(self.shutdown())
+            pass
         finally:
+            self.loop.run_until_complete(self.shutdown())
             self.cleanup()
 
     def cleanup(self):
@@ -113,11 +115,10 @@ class Launcher:
             return
         if task.exception():
             task.print_stack()
-            self.keep_alive = self.loop.create_task(self.rebooter())
-            self.keep_alive.add_done_callback(self.task_complete)
+            self.cleanup()
 
     async def startup(self):
-        shards = list(range(self.get_shard_count()))
+        shards = list(range(get_shard_count()))
         size = [shards[x : x + 4] for x in range(0, len(shards), 4)]
         log.info(f"Preparing {len(size)} clusters")
         for shard_ids in size:
@@ -143,7 +144,7 @@ class Launcher:
             # log.info("Cycle!")
             if not self.clusters:
                 log.warning("All clusters appear to be dead")
-                asyncio.ensure_future(self.shutdown())
+                return
             to_remove = []
             for cluster in self.clusters:
                 if not cluster.process.is_alive():
@@ -152,18 +153,18 @@ class Launcher:
                         "is offline.",
                         WEBHOOK_URL,
                     )
-                    # if cluster.process.exitcode != 0:
-                    #    # ignore safe exits
-                    log.info(
-                        f"Cluster#{cluster.name} exited with code "
-                        f"{cluster.process.exitcode}"
-                    )
-                    log.info(f"Restarting cluster#{cluster.name}")
-                    await cluster.start()
-                    # else:
-                    #    log.info(f"Cluster#{cluster.name} found dead")
-                    #    to_remove.append(cluster)
-                    #    cluster.stop()  # ensure stopped
+                    if cluster.process.exitcode != 0:
+                        # ignore safe exits
+                        log.info(
+                            f"Cluster#{cluster.name} exited with code "
+                            f"{cluster.process.exitcode}"
+                        )
+                        log.info(f"Restarting cluster#{cluster.name}")
+                        await cluster.start()
+                    else:
+                        log.info(f"Cluster#{cluster.name} found dead")
+                        to_remove.append(cluster)
+                        cluster.stop()  # ensure stopped
             for rem in to_remove:
                 self.clusters.remove(rem)
             await asyncio.sleep(5)
